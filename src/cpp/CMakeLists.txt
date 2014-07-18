@@ -29,20 +29,16 @@ ENDIF (APPLE)
 
 ADD_DEFINITIONS(
 # optimization
-#    -O3 
 #    -fPIC
 #    -fvisibility-inlines-hidden
-# debug
-#    -O0 
-#    -g
 # warnings
     -Wall 
-#    -Wno-null-conversion 
-#    -Wno-unused-label 
-#    -Wno-overloaded-virtual 
-#    -Wno-deprecated-declarations 
-#    -Wno-tautological-constant-out-of-range-compare
-#    -Wno-deprecated
+    -Wno-unused-label
+    -Wno-conversion-null
+    -Wno-write-strings
+    -Wno-unused-but-set-variable
+    -Wno-maybe-uninitialized
+    -Wno-cpp
 )
 
 IF (${DEBUG_MODE})

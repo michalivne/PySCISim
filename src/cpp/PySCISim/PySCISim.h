@@ -6,28 +6,29 @@
 #define __PYSCISIM_H__
 
 #include "ThreeDRigidBodies/ThreeDRigidBodySim.h"
+#include "Window.h"
+
+#include <QApplication>
+#include <QDesktopWidget>
+
 #include <cstring>
+#include <boost/shared_ptr.hpp>
 
-//std::string generateOutputConfigurationDataFileName(const std::string& prefix);
-//void printCompileInfo(std::ostream& output_stream);
-//bool loadXMLScene(const std::string& xml_file_name);
-//std::string generateTimeString();
-//void saveState();
-//void serializeSystem();
-//void deserializeSystem(const std::string& file_name);
-//void exportConfigurationData();
-//std::string generateOutputConstraintForceDataFileName();
-//void stepSystem();
-//void executeSimLoop();
-//void exitCleanup();
-//void printUsage(const std::string& executable_name);
-//bool parseCommandLineOptions(int* argc, char*** argv, bool& help_mode_enabled,
-//		scalar& end_time_override, unsigned& output_frequency,
-//		std::string& serialized_file_name);
-//int main(int argc, char** argv);
-//
-//void test(const std::string& xml_fname);
+////////////////////////////////////////////
+// SCISimWindow
+////////////////////////////////////////////
 
-void scisim_QT();
+class SCISimApp {
+public:
+	SCISimApp();
+
+	void centerWindow();
+	void run();
+
+protected:
+	boost::shared_ptr<QApplication> app;
+	boost::shared_ptr<Window> window;
+};
+
 
 #endif // __PYSCISIM_H__
