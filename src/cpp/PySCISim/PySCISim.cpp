@@ -4,11 +4,39 @@
 
 #include "PySCISim.h"
 
-void test(const std::string& xml_fname) {
-	int argc = 2;
-	char* argv[] = {"PySCISim",
-			"/Users/livne/Research/SCISim/assets/3DRigidBodyScene/Balls/BernoullisProblem.xml"};
+#include <QApplication>
+#include <QDesktopWidget>
 
-	main(argc, argv);
-};
+#include "Window.h"
+
+void centerWindow(Window& window) {
+	QDesktopWidget* desktop = QApplication::desktop();
+
+	const int screenWidth = desktop->screenGeometry().width();
+	const int screenHeight = desktop->screenGeometry().height();
+
+	const QSize windowSize = window.size();
+	const int width = windowSize.width();
+	const int height = windowSize.height();
+
+	const int x = (screenWidth - width) / 2;
+	const int y = (screenHeight - height) / 2;
+
+	window.move(x, y);
+}
+
+void scisim_QT() {
+	//QApplication::setGraphicsSystem("opengl");
+	int argc = 1;
+	char *argv[] = {"PySCISim"};
+	QApplication app(argc, argv);
+	Window window;
+	window.resize(window.sizeHint());
+	window.setWindowTitle("Three Dimensional Rigid Body Simulation");
+	centerWindow(window);
+	window.show();
+	window.raise();
+	app.exec();
+}
+;
 

@@ -1,6 +1,8 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 2.8)
 PROJECT(PHYSICAL_TRACKING_PROJECT)
 
+set(CMAKE_OSX_ARCHITECTURES "x86_64")
+
 # use debug mode when building Xcode
 IF( CMAKE_GENERATOR STREQUAL "Xcode" )
     OPTION(DEBUG_MODE "Controls debug/optimization flags" ON)
@@ -19,7 +21,7 @@ IF(APPLE)
     ADD_DEFINITIONS(
     # C++ flags
 #        -std=c++11 
-#        -stdlib=libc++
+#        -stdlib=libstdc++
 #        -fno-strict-aliasing
     )
 
@@ -28,8 +30,8 @@ ENDIF (APPLE)
 ADD_DEFINITIONS(
 # optimization
 #    -O3 
-    -fPIC
-    -fvisibility-inlines-hidden
+#    -fPIC
+#    -fvisibility-inlines-hidden
 # debug
 #    -O0 
 #    -g
@@ -68,9 +70,9 @@ SET(SCISim_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/../../../SCISim)
 INCLUDE_DIRECTORIES(${SCISim_INCLUDE_DIR})
 INCLUDE_DIRECTORIES(${SCISim_INCLUDE_DIR}/ThreeDRigidBodies)
 INCLUDE_DIRECTORIES(${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesUtils)
+INCLUDE_DIRECTORIES(${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesQt4)
 INCLUDE_DIRECTORIES(${SCISim_INCLUDE_DIR}/include/)
 INCLUDE_DIRECTORIES(${SCISim_INCLUDE_DIR}/include/rapidxml)
-
 LINK_DIRECTORIES(${CMAKE_SOURCE_DIR}/../../../SCISim/build/SDIC)
 LINK_DIRECTORIES(${CMAKE_SOURCE_DIR}/../../../SCISim/build/ThreeDRigidBodies)
 LINK_DIRECTORIES(${CMAKE_SOURCE_DIR}/../../../SCISim/build/ThreeDRigidBodiesUtils)
