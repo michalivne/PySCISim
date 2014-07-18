@@ -10,10 +10,13 @@ ELSE ()
     OPTION(DEBUG_MODE "Controls debug/optimization flags" OFF)
 ENDIF()
 
-
+# Add CMake FIND* scripts
 SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
-SET(OpenCV_DIR "/opt/local/lib/cmake")
+# make global SWIG interface files available
+INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/swig)
+
+
 # set path to include MacPorts rather thanl local python libraries.
 IF(APPLE)
     SET(CMAKE_LIBRARY_PATH /opt/local/lib ${CMAKE_LIBRARY_PATH})
@@ -58,24 +61,15 @@ ELSE ()
 ENDIF()
 
 SET(CMAKE_SWIG_FLAGS ${CMAKE_SWIG_FLAGS} -builtin)
-#SET(CMAKE_SWIG_FLAGS ${CMAKE_SWIG_FLAGS} -builtin -includeall)
 
 SET(SCISim_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/../../../SCISim) 
 
 # include SCISim
 INCLUDE_DIRECTORIES(${SCISim_INCLUDE_DIR})
-INCLUDE_DIRECTORIES(${SCISim_INCLUDE_DIR}/ThreeDRigidBodies)
-INCLUDE_DIRECTORIES(${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesUtils)
-INCLUDE_DIRECTORIES(${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesQt4)
-INCLUDE_DIRECTORIES(${SCISim_INCLUDE_DIR}/include/)
 INCLUDE_DIRECTORIES(${SCISim_INCLUDE_DIR}/include/rapidxml)
 LINK_DIRECTORIES(${CMAKE_SOURCE_DIR}/../../../SCISim/build/SDIC)
 LINK_DIRECTORIES(${CMAKE_SOURCE_DIR}/../../../SCISim/build/ThreeDRigidBodies)
 LINK_DIRECTORIES(${CMAKE_SOURCE_DIR}/../../../SCISim/build/ThreeDRigidBodiesUtils)
-
-
-# make global SWIG interface files available
-INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/swig)
 
 # add project directories
 ADD_SUBDIRECTORY(PySCISim)

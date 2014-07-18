@@ -6,7 +6,7 @@
 #define __PYSCISIM_H__
 
 #include "ThreeDRigidBodies/ThreeDRigidBodySim.h"
-#include "Window.h"
+#include "ThreeDRigidBodiesQt4/Window.h"
 
 #include <QApplication>
 #include <QDesktopWidget>
@@ -21,7 +21,9 @@
 class SCISimApp {
 public:
 	SCISimApp();
+	~SCISimApp();
 
+	void reset_QT();
 	void centerWindow();
 	void run();
 
