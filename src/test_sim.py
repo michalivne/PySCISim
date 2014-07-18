@@ -28,6 +28,9 @@ all_U = []
 all_p = []
 all_L = []
 
+all_q = []
+all_v = []
+
 for i in range(100):
     app.stepSystem()
     all_time.append(app.getSim_time())
@@ -35,6 +38,8 @@ for i in range(100):
     all_U.append(app.getSim_U())
     all_p.append(app.getSim_p().flatten())
     all_L.append(app.getSim_L().flatten())
+    all_q.append(app.getSimState_q().flatten())
+    all_v.append(app.getSimState_v().flatten())
     
 # make all arrays numpy
 all_time = np.array(all_time) 
@@ -43,7 +48,12 @@ all_U = np.array(all_U)
 all_p = np.array(all_p)
 all_L = np.array(all_L)
 
+all_q = np.array(all_q)
+all_v = np.array(all_v)
+
 # plot results
+
+# energy and momentum
 plt.figure()
 plt.suptitle(SCENE_NAME)
 plt.subplot(3, 1, 1)
@@ -68,4 +78,24 @@ plt.ylabel("Angular Momentum")
 
 plt.xlabel("Time [Sec]")
 
+# position and speed
+plt.figure()
+plt.suptitle(SCENE_NAME)
+plt.subplot(2, 1, 1)
+plt.hold(True)
+plt.plot(all_time, all_q)
+plt.grid(True)
+plt.ylabel("q")
+
+plt.subplot(2, 1, 2)
+plt.hold(True)
+plt.plot(all_time, all_v)
+plt.grid(True)
+plt.ylabel("v")
+
+plt.xlabel("Time [Sec]")
+
+plt.figure()
+plt.imshow(app.getSimState_M())
+plt.title(SCENE_NAME+" : M")
 plt.show()

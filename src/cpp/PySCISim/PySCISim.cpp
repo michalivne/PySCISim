@@ -125,3 +125,17 @@ ThreeDRigidBodySim* SCISimApp::getSim_sim() {
 RigidBodySimState* SCISimApp::getSim_sim_state_backup() {
 	return m_gl_widget->get_sim_state_backup();
 }
+
+MatrixXs SCISimApp::getSimState_M() {
+	return getSim_sim()->getState().M();
+}
+
+VectorXs SCISimApp::getSimState_q() {
+	return getSim_sim()->getState().q();
+}
+
+VectorXs SCISimApp::getSimState_v() {
+	return getSim_sim()->getState().v();
+
+}
+

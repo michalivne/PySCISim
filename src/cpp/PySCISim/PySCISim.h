@@ -43,6 +43,11 @@ public:
 	Eigen::Vector3d getSim_p();
 	Eigen::Vector3d getSim_L();
 
+	MatrixXs getSimState_M();
+	VectorXs getSimState_q();
+	VectorXs getSimState_v();
+
+
 	ThreeDRigidBodySim* getSim_sim();
 	RigidBodySimState* getSim_sim_state_backup();
 
