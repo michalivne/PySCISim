@@ -119,3 +119,7 @@ void Window::closeEvent( QCloseEvent* event )
   assert( m_content_widget != NULL );
   m_content_widget->close();
 }
+
+ContentWidget* Window::get_content_widget() {
+	return m_content_widget;
+}

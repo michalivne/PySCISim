@@ -19,6 +19,8 @@ public:
 
   void keyPressEvent( QKeyEvent* event );
 
+  ContentWidget* get_content_widget();
+
 protected:
 
   void closeEvent( QCloseEvent* event );

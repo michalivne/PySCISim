@@ -54,6 +54,8 @@ public slots:
 
   void exportCameraSettings();
   
+  GLWidget* get_gl_widget();
+
 protected:
 
   void closeEvent( QCloseEvent* event );

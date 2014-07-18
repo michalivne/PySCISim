@@ -1102,3 +1102,11 @@ bool GLWidget::checkGLErrors()
   }
   return true;
 }
+
+ThreeDRigidBodySim* GLWidget::get_sim() {
+	return &m_sim;
+}
+
+RigidBodySimState* GLWidget::get_sim_state_backup() {
+	return &m_sim_state_backup;
+}

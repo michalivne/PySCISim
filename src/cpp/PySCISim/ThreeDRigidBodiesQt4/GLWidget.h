@@ -62,7 +62,10 @@ public:
   void setMovieFPS( const int fps );
   
   void exportCameraSettings();
-  
+
+  ThreeDRigidBodySim* get_sim();
+  RigidBodySimState* get_sim_state_backup();
+
 protected:
 
   void initializeGL();

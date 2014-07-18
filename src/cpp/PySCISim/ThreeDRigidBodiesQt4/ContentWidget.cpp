@@ -315,3 +315,7 @@ QString ContentWidget::getDirectoryNameFromUser( const QString& prompt )
   activateWindow();
   return file_name;
 }
+
+GLWidget* ContentWidget::get_gl_widget() {
+	return m_gl_widget;
+}

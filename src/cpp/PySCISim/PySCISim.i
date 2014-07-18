@@ -12,7 +12,6 @@ typedef double scalar;
 #include "ThreeDRigidBodies/KinematicScripting.h"
 #include "ThreeDRigidBodies/RigidBodySimState.h"
 #include "ThreeDRigidBodies/Forces/Force.h"
-#include "ThreeDRigidBodiesQt4/Window.h"
 %}
 
 %include "typemaps.i"
@@ -35,6 +34,7 @@ typedef double scalar;
 
 %eigen_typemaps(Vector3s)
 %eigen_typemaps(VectorXs)
+%eigen_typemaps(Eigen::Vector3d)
 
 typedef double scalar;
 
@@ -49,4 +49,3 @@ typedef double scalar;
 %include "ThreeDRigidBodies/KinematicScripting.h"
 %include "ThreeDRigidBodies/RigidBodySimState.h"
 %include "ThreeDRigidBodies/Forces/Force.h"
-%include "ThreeDRigidBodiesQt4/Window.h"
