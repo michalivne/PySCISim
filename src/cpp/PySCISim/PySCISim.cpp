@@ -39,7 +39,7 @@ void SCISimApp::centerWindow() {
 	window->move(x, y);
 }
 
-void SCISimApp::run() {
+void SCISimApp::run(const std::string& xml_scene_file_name) {
 	// Make sure old window is destroyed
 	reset_QT();
 
@@ -55,6 +55,11 @@ void SCISimApp::run() {
 
 	window->show();
 	window->raise();
+
+	if (xml_scene_file_name  != "")
+		throw "Not implemented yet.";
+//		openScene(xml_scene_file_name);
+
 	app->exec();
 
 	// store new gl_widget

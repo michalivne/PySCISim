@@ -25,7 +25,7 @@ public:
 	SCISimApp();
 	~SCISimApp();
 
-	void run();
+	void run(const std::string& xml_scene_file_name="");
 
 	// simulation interface
 	void openScene(const std::string& xml_scene_file_name);

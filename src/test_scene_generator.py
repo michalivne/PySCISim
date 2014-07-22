@@ -31,5 +31,5 @@ scene.add_rigid_body_with_density(geometry_name="ball",
 scene.save(XML_FILE_NAME)
 
 app = PySCISim.SCISimApp()
-
 app.openScene("scene.xml")
+# app.run("scene.xml")
