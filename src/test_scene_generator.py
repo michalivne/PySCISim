@@ -5,6 +5,8 @@ A test script for generating XML files for SCISim.
 from setup import *
 from scene_generator import SceneGenerator
 
+import numpy as np
+
 #===============================================================================
 # Control variables
 #===============================================================================
@@ -21,9 +23,13 @@ scene.add_friction_operator()
 scene.add_near_earth_gravity()
 scene.add_sphere(name="ball", r=0.2)
 scene.add_static_plane(x="0.0 0.0 0.0", n="1.0 1.0 0.0", r="10.0 5.0")
+x = np.array([0.0, 2.0, 0.0]) 
+v = [0.0, 1.0, 0.0]
 scene.add_rigid_body_with_density(geometry_name="ball", 
-                                    x="0.0 2.0 0.0",
-                                    v="0.0 0.0 0.0",
+#                                     x="0.0 2.0 0.0",
+                                    x=x,
+#                                     v="0.0 0.0 0.0",
+                                    v=v,
                                     omega="0.0 0.0 0.0",
                                     rho="1.74040", 
                                     fixed="0")

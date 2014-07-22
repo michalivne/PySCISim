@@ -6,6 +6,8 @@ from lxml.etree import Element
 from lxml.etree import ElementTree
 from lxml.etree import SubElement
 
+import numpy as np
+
 class SceneGenerator(object):
     """
     Generates XML scene files for SCISim.
@@ -20,6 +22,19 @@ class SceneGenerator(object):
 
         self.static_plane_counter = 0
 
+    def get_string(self, x):
+        """
+        Converts different objects to strings.
+        """
+        if type(x) == np.ndarray:
+            s = str(x)[1:-1]
+        elif type(x) == list:
+            s = str(x)[1:-1].replace(",", "")
+        else:
+            s =  str(x)
+            
+        return s
+
     def add_componenet(self, tag, parent=None, **attributes):
         """
         A generic component insertion. 
@@ -28,7 +43,8 @@ class SceneGenerator(object):
             parent = self.root
         # make sure all elements are string
         return SubElement(parent, tag,
-                     attrib={k: str(v) for k, v in attributes.iteritems()})
+                     attrib={k: self.get_string(v) 
+                             for k, v in attributes.iteritems()})
 
     def add_integrator(self, type="split_ham", dt="0.01"):
         return self.add_componenet(tag="integrator",
@@ -89,7 +105,7 @@ class SceneGenerator(object):
     def add_static_plane(self, x="0.0 0.0 0.0", n="0.0 1.0 0.0", r="10.0 5.0"):
         e = self.add_componenet(tag="static_plane", x=x, n=n)
         self.add_componenet(tag="static_plane_renderer", 
-                            plane=str(self.static_plane_counter), r=r)
+                            plane=self.static_plane_counter, r=r)
         self.static_plane_counter += 1
         
         return e
@@ -102,7 +118,7 @@ class SceneGenerator(object):
                             fixed="0"):
         self.add_componenet(tag="rigid_body_with_density", 
                             x=x, R=R, v=v, omega=omega, rho=rho, fixed=fixed, 
-                            geo_idx=str(self.geometry_ind_map[geometry_name]))
+                            geo_idx=self.geometry_ind_map[geometry_name])
     
     def save(self, fname):
         """

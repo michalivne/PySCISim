@@ -39,6 +39,8 @@ void SCISimApp::centerWindow() {
 	window->move(x, y);
 }
 
+// TODO: make run use current scene
+// TODO: make run to load XML file if given.
 void SCISimApp::run(const std::string& xml_scene_file_name) {
 	// Make sure old window is destroyed
 	reset_QT();
