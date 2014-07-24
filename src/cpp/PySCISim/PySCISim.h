@@ -51,8 +51,9 @@ public:
 	ThreeDRigidBodySim* getSim_sim();
 	RigidBodySimState* getSim_sim_state_backup();
 
+	void resetQt();
+
 protected:
-	void reset_QT();
 	void centerWindow();
 	GLWidget* get_gl_widget();
 

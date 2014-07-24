@@ -120,9 +120,10 @@ class SceneGenerator(object):
                             x=x, R=R, v=v, omega=omega, rho=rho, fixed=fixed, 
                             geo_idx=self.geometry_ind_map[geometry_name])
     
-    def save(self, fname):
+    def save(self, fname, verbose=True):
         """
         Saves current scene.
         """
-        print "Writing SCISim XML file: %s" % (fname)
+        if verbose:
+            print "Writing SCISim XML file: %s" % (fname)
         self.tree.write(fname, pretty_print=True)

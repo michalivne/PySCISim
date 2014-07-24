@@ -11,14 +11,14 @@ using namespace std;
 ////////////////////////////////////////////
 
 SCISimApp::SCISimApp() {
-	m_gl_widget = get_gl_widget();
+	get_gl_widget();
 	updateSimData();
 }
 
 SCISimApp::~SCISimApp() {
 }
 
-void SCISimApp::reset_QT() {
+void SCISimApp::resetQt() {
 	window = boost::shared_ptr<Window>();
 	app = boost::shared_ptr<QApplication>();
 }
@@ -39,39 +39,38 @@ void SCISimApp::centerWindow() {
 	window->move(x, y);
 }
 
-// TODO: make run use current scene
-// TODO: make run to load XML file if given.
 void SCISimApp::run(const std::string& xml_scene_file_name) {
-	// Make sure old window is destroyed
-	reset_QT();
+//	// Make sure old window is destroyed
+//	resetQt();
+//
+//	//QApplication::setGraphicsSystem("opengl");
+//	int argc = 1;
+//	char *argv[] = { "PySCISim" };
+//	app = boost::shared_ptr < QApplication > (new QApplication(argc, argv));
+//
+//	window = boost::shared_ptr < Window > (new Window);
+//	window->resize(window->sizeHint());
+//	window->setWindowTitle("Three Dimensional Rigid Body Simulation");
+//	centerWindow();
+//
+//	window->show();
+//	window->raise();
 
-	//QApplication::setGraphicsSystem("opengl");
-	int argc = 1;
-	char *argv[] = { "PySCISim" };
-	app = boost::shared_ptr < QApplication > (new QApplication(argc, argv));
-
-	window = boost::shared_ptr < Window > (new Window);
-	window->resize(window->sizeHint());
-	window->setWindowTitle("Three Dimensional Rigid Body Simulation");
-	centerWindow();
-
-	window->show();
-	window->raise();
-
-	if (xml_scene_file_name  != "")
-		throw "Not implemented yet.";
-//		openScene(xml_scene_file_name);
+	if (xml_scene_file_name  != "") {
+		resetQt();
+		m_gl_widget = get_gl_widget();
+		openScene(xml_scene_file_name);
+	}
 
 	app->exec();
 
-	// store new gl_widget
-	m_gl_widget = get_gl_widget();
-
+//	// store new gl_widget
+//	get_gl_widget();
 }
 
 GLWidget* SCISimApp::get_gl_widget() {
 	// Make sure old window is destroyed
-	reset_QT();
+	resetQt();
 
 	//QApplication::setGraphicsSystem("opengl");
 	int argc = 1;
@@ -85,16 +84,22 @@ GLWidget* SCISimApp::get_gl_widget() {
 	window->show();
 	window->raise();
 
-	return window->get_content_widget()->get_gl_widget();
+	m_gl_widget = window->get_content_widget()->get_gl_widget();
+	return m_gl_widget;
 }
 
 void SCISimApp::openScene(const std::string& xml_scene_file_name) {
+	get_gl_widget();
 	m_gl_widget->openScene(xml_scene_file_name.c_str());
 }
 
 void SCISimApp::stepSystem() {
+	// step simulation
 	m_gl_widget->stepSystem();
+	// read simulation variables
 	updateSimData();
+	// step Qt events loop
+	app->processEvents();
 }
 
 void SCISimApp::resetSystem() {
