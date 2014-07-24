@@ -57,15 +57,16 @@ void SCISimApp::run(const std::string& xml_scene_file_name) {
 //	window->raise();
 
 	if (xml_scene_file_name  != "") {
-		resetQt();
-		m_gl_widget = get_gl_widget();
 		openScene(xml_scene_file_name);
 	}
 
 	app->exec();
 
-//	// store new gl_widget
-//	get_gl_widget();
+	if (xml_scene_file_name  != "") {
+		openScene(xml_scene_file_name);
+	} else
+		// store new gl_widget
+		get_gl_widget();
 }
 
 GLWidget* SCISimApp::get_gl_widget() {
