@@ -16,6 +16,7 @@ SCISimApp::SCISimApp() {
 }
 
 SCISimApp::~SCISimApp() {
+	resetQt();
 }
 
 void SCISimApp::resetQt() {
