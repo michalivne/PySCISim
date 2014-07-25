@@ -10,14 +10,15 @@ using namespace std;
 // SCISimWindow
 ////////////////////////////////////////////
 
-SCISimApp::SCISimApp() {
+SCISimApp::SCISimApp(bool process_Qt_events):
+		process_Qt_events(process_Qt_events) {
 	get_gl_widget();
 	updateSimData();
 }
 
 SCISimApp::~SCISimApp() {
-	app->quit();
-	resetQt();
+		app->quit();
+		resetQt();
 }
 
 void SCISimApp::resetQt() {
@@ -42,25 +43,12 @@ void SCISimApp::centerWindow() {
 }
 
 void SCISimApp::run(const std::string& xml_scene_file_name) {
-//	// Make sure old window is destroyed
-//	resetQt();
-//
-//	//QApplication::setGraphicsSystem("opengl");
-//	int argc = 1;
-//	char *argv[] = { "PySCISim" };
-//	app = boost::shared_ptr < QApplication > (new QApplication(argc, argv));
-//
-//	window = boost::shared_ptr < Window > (new Window);
-//	window->resize(window->sizeHint());
-//	window->setWindowTitle("Three Dimensional Rigid Body Simulation");
-//	centerWindow();
-//
-//	window->show();
-//	window->raise();
-
 	if (xml_scene_file_name  != "") {
 		openScene(xml_scene_file_name);
 	}
+
+	// Initialize Qt if was not before
+	get_gl_widget();
 
 	app->exec();
 
@@ -81,11 +69,15 @@ GLWidget* SCISimApp::get_gl_widget() {
 	app = boost::shared_ptr < QApplication > (new QApplication(argc, argv));
 
 	window = boost::shared_ptr < Window > (new Window);
+
 	window->resize(window->sizeHint());
 	window->setWindowTitle("Three Dimensional Rigid Body Simulation");
-	centerWindow();
+//	centerWindow();
 	window->show();
 	window->raise();
+	if (!process_Qt_events) {
+		window->hide();
+	}
 
 	m_gl_widget = window->get_content_widget()->get_gl_widget();
 	return m_gl_widget;
@@ -102,7 +94,8 @@ void SCISimApp::stepSystem() {
 	// read simulation variables
 	updateSimData();
 	// step Qt events loop
-	app->processEvents();
+	if (process_Qt_events)
+		app->processEvents();
 }
 
 void SCISimApp::resetSystem() {

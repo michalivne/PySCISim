@@ -22,7 +22,7 @@
 
 class SCISimApp {
 public:
-	SCISimApp();
+	SCISimApp(bool process_Qt_events=true);
 	~SCISimApp();
 
 	void run(const std::string& xml_scene_file_name="");
@@ -65,6 +65,8 @@ protected:
 	double time, T, U;
 	Eigen::Vector3d p;
 	Eigen::Vector3d L;
+
+	bool process_Qt_events;
 };
 
 #endif // __PYSCISIM_H__
