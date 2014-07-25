@@ -46,6 +46,7 @@ GLWidget::GLWidget( QWidget* parent )
 , m_display_xy_grid( false )
 , m_display_yz_grid( false )
 , m_display_xz_grid( false )
+, m_use_opengl ( false )
 , m_movie_dir_name()
 , m_movie_dir()
 , m_output_frame(0)
@@ -429,6 +430,9 @@ void GLWidget::resizeGL( int width, int height )
 
 void GLWidget::paintGL()
 {
+  if (!m_use_opengl)
+	  return;
+
   glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
   glMatrixMode( GL_MODELVIEW );
@@ -720,6 +724,10 @@ void GLWidget::centerCamera()
   updateGL();
 }
 
+void GLWidget::useOpenGL(bool b) {
+	m_use_opengl = b;
+}
+
 void GLWidget::saveScreenshot( const QString& file_name )
 {
   std::cout << "Saving screenshot of time " << m_iteration * m_dt << " to " << file_name.toStdString() << std::endl;
@@ -955,6 +963,9 @@ void GLWidget::paintSystem() const
 
 void GLWidget::paintHUD()
 {
+  if (!m_use_opengl)
+	  return;
+
   // String to display in upper left corner
   const QString time_string  = QString( tr(" t: ") ) + QString::number( m_iteration * m_dt, 'f', m_display_precision ) + ( m_end_time != SCALAR_INFINITY ? QString( tr(" / ") ) + QString::number( m_end_time ) : QString( tr("") ) );
   const QString delta_H      = QString( tr("dH: ") ) + QString::number( m_delta_H0 );

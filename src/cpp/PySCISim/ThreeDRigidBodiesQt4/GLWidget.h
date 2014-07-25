@@ -55,6 +55,8 @@ public:
   void toggleXZGrid();
   void centerCamera();
 
+  void useOpenGL(bool b);
+
   void saveScreenshot( const QString& file_name );
 
   void setMovieDir( const QString& dir_name );
@@ -119,6 +121,8 @@ private:
   bool m_display_xy_grid;
   bool m_display_yz_grid;
   bool m_display_xz_grid;
+
+  bool m_use_opengl;
 
   
   // Directory to save periodic screenshots of the simulation into

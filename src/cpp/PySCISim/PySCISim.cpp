@@ -70,16 +70,20 @@ GLWidget* SCISimApp::get_gl_widget() {
 
 	window = boost::shared_ptr < Window > (new Window);
 
-	window->resize(window->sizeHint());
-	window->setWindowTitle("Three Dimensional Rigid Body Simulation");
-//	centerWindow();
-	window->show();
-	window->raise();
+	m_gl_widget = window->get_content_widget()->get_gl_widget();
+	m_gl_widget->useOpenGL(process_Qt_events);
+
 	if (!process_Qt_events) {
 		window->hide();
+		m_gl_widget->toggleHUD();
+	} else {
+		window->resize(window->sizeHint());
+		window->setWindowTitle("Three Dimensional Rigid Body Simulation");
+	//	centerWindow();
+		window->show();
+		window->raise();
 	}
 
-	m_gl_widget = window->get_content_widget()->get_gl_widget();
 	return m_gl_widget;
 }
 
