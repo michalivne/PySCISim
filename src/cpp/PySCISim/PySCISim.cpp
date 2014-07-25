@@ -16,6 +16,7 @@ SCISimApp::SCISimApp() {
 }
 
 SCISimApp::~SCISimApp() {
+	app->quit();
 	resetQt();
 }
 
