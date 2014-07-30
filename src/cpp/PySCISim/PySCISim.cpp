@@ -4,11 +4,13 @@
 
 #include "PySCISim.h"
 
-using namespace std;
+ using namespace std;
 
 ////////////////////////////////////////////
 // SCISimWindow
 ////////////////////////////////////////////
+int SCISimApp::Qt_argc = 1;
+char *SCISimApp::Qt_argv[] = { "PySCISim" };
 
 SCISimApp::SCISimApp(bool process_Qt_events):
 		process_Qt_events(process_Qt_events) {
@@ -17,8 +19,10 @@ SCISimApp::SCISimApp(bool process_Qt_events):
 }
 
 SCISimApp::~SCISimApp() {
+	if (app.get())
 		app->quit();
-		resetQt();
+
+	resetQt();
 }
 
 void SCISimApp::resetQt() {
@@ -43,15 +47,14 @@ void SCISimApp::centerWindow() {
 }
 
 void SCISimApp::run(const std::string& xml_scene_file_name) {
+	// load a scene if given
 	if (xml_scene_file_name  != "") {
 		openScene(xml_scene_file_name);
 	}
 
-	// Initialize Qt if was not before
-	get_gl_widget();
-
 	app->exec();
 
+	// reload scene/clear window or else Qt crashes.
 	if (xml_scene_file_name  != "") {
 		openScene(xml_scene_file_name);
 	} else
@@ -64,9 +67,7 @@ GLWidget* SCISimApp::get_gl_widget() {
 	resetQt();
 
 	//QApplication::setGraphicsSystem("opengl");
-	int argc = 1;
-	char *argv[] = { "PySCISim" };
-	app = boost::shared_ptr < QApplication > (new QApplication(argc, argv));
+	app = boost::shared_ptr < QApplication > (new QApplication(Qt_argc, Qt_argv));
 
 	window = boost::shared_ptr < Window > (new Window);
 
@@ -98,8 +99,8 @@ void SCISimApp::stepSystem() {
 	// read simulation variables
 	updateSimData();
 	// step Qt events loop
-	if (process_Qt_events)
-		app->processEvents();
+//	if (process_Qt_events)
+//		app->processEvents();
 }
 
 void SCISimApp::resetSystem() {

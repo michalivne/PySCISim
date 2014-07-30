@@ -98,6 +98,10 @@ class SceneGenerator(object):
         self.add_geometry(name=name, type="sphere", 
                           geometry_params={"r": r})
 
+    def add_box(self, name, r="0.1 0.2 0.3"):
+        self.add_geometry(name=name, type="box", 
+                          geometry_params={"r": r})
+
     def add_mesh(self, name, filename):
         self.add_geometry(name=name, type="mesh", 
                           geometry_params={"filename": filename})

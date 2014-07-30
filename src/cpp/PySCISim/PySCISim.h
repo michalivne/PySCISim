@@ -67,6 +67,8 @@ protected:
 	Eigen::Vector3d L;
 
 	bool process_Qt_events;
+	static int Qt_argc;
+	static char *Qt_argv[];
 };
 
 #endif // __PYSCISIM_H__
