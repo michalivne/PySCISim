@@ -99,8 +99,8 @@ void SCISimApp::stepSystem() {
 	// read simulation variables
 	updateSimData();
 	// step Qt events loop
-//	if (process_Qt_events)
-//		app->processEvents();
+	if (process_Qt_events)
+		app->processEvents();
 }
 
 void SCISimApp::resetSystem() {
