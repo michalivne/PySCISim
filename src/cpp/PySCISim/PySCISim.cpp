@@ -4,7 +4,7 @@
 
 #include "PySCISim.h"
 
- using namespace std;
+using namespace std;
 
 ////////////////////////////////////////////
 // SCISimWindow
@@ -12,7 +12,7 @@
 int SCISimApp::Qt_argc = 1;
 char *SCISimApp::Qt_argv[] = { "PySCISim" };
 
-SCISimApp::SCISimApp(bool process_Qt_events):
+SCISimApp::SCISimApp(bool process_Qt_events) :
 		process_Qt_events(process_Qt_events) {
 	get_gl_widget();
 	updateSimData();
@@ -48,14 +48,14 @@ void SCISimApp::centerWindow() {
 
 void SCISimApp::run(const std::string& xml_scene_file_name) {
 	// load a scene if given
-	if (xml_scene_file_name  != "") {
+	if (xml_scene_file_name != "") {
 		openScene(xml_scene_file_name);
 	}
 
 	app->exec();
 
 	// reload scene/clear window or else Qt crashes.
-	if (xml_scene_file_name  != "") {
+	if (xml_scene_file_name != "") {
 		openScene(xml_scene_file_name);
 	} else
 		// store new gl_widget
@@ -67,7 +67,8 @@ GLWidget* SCISimApp::get_gl_widget() {
 	resetQt();
 
 	//QApplication::setGraphicsSystem("opengl");
-	app = boost::shared_ptr < QApplication > (new QApplication(Qt_argc, Qt_argv));
+	app = boost::shared_ptr < QApplication
+			> (new QApplication(Qt_argc, Qt_argv));
 
 	window = boost::shared_ptr < Window > (new Window);
 
@@ -80,7 +81,7 @@ GLWidget* SCISimApp::get_gl_widget() {
 	} else {
 		window->resize(window->sizeHint());
 		window->setWindowTitle("Three Dimensional Rigid Body Simulation");
-	//	centerWindow();
+		//	centerWindow();
 		window->show();
 		window->raise();
 	}
@@ -109,6 +110,8 @@ void SCISimApp::resetSystem() {
 
 void SCISimApp::updateSimData() {
 	m_gl_widget->getSimData(time, T, U, p, L);
+	m_gl_widget->get_sim()->computeNumberOfCollisions(number_of_collisions,
+			collision_penetration_depth);
 }
 
 double SCISimApp::getSim_time() {
@@ -131,6 +134,14 @@ Eigen::Vector3d SCISimApp::getSim_L() {
 	return L;
 }
 
+unsigned int SCISimApp::getSim_collisions() {
+	return number_of_collisions;
+}
+
+double SCISimApp::getSim_collisions_penetration_depth() {
+	return collision_penetration_depth;
+}
+
 ThreeDRigidBodySim* SCISimApp::getSim_sim() {
 	return m_gl_widget->get_sim();
 }
@@ -149,6 +160,83 @@ VectorXs SCISimApp::getSimState_q() {
 
 VectorXs SCISimApp::getSimState_v() {
 	return getSim_sim()->getState().v();
+}
 
+VectorXs SCISimApp::getSimState_T() {
+	const RigidBodySimState& m_sim_state = getSim_sim()->getState();
+	int N = m_sim_state.nbodies();
+	VectorXs T(N);
+
+	VectorXs T_helper = 0.5
+			* m_sim_state.v().cwiseProduct(m_sim_state.M() * m_sim_state.v());
+
+	// sum angular and linear kinetic energy
+	for (int body = 0; body < N; ++body) {
+		T(body) = T_helper.segment<3>(3 * body).sum()
+				+ T_helper.segment<3>(3 * N + 3 * body).sum();
+	}
+
+	return T;
+}
+
+VectorXs SCISimApp::getSimState_U() {
+	const RigidBodySimState& m_sim_state = getSim_sim()->getState();
+	int N = m_sim_state.nbodies();
+	VectorXs U = VectorXs::Zero(N);
+
+	for (int body = 0; body < N; ++body) {
+		VectorXs cur_q(12);
+		cur_q.segment<3>(0) = m_sim_state.q().segment<3>(3*body);
+		cur_q.segment<9>(3) = m_sim_state.q().segment<9>(3*N+9*body);
+		MatrixXs M = this->getSimState_M();
+		SparseMatrixsc cur_M(6, 6);
+		for (int i = 0; i < 3; i++)
+			for (int j = 0; j < 3; j++) {
+				cur_M.insert(i, j) = M(3*body+i, 3*body+j);
+				cur_M.insert(i+3, j+3) = M(3*N+3*body+i, 3*N+3*body+j);
+			}
+		for (std::vector<Force*>::size_type i = 0; i < m_sim_state.forces().size();
+				++i) {
+			U(body) += m_sim_state.forces()[i]->computePotential(
+					cur_q, cur_M);
+		}
+	}
+
+	return U;
+}
+
+VectorXs SCISimApp::getSimState_p() {
+	const RigidBodySimState& m_sim_state = getSim_sim()->getState();
+	int N = m_sim_state.nbodies();
+	VectorXs p(N * 3);
+
+	for (int body = 0; body < N; ++body) {
+		p.segment<3>(3 * body) = m_sim_state.getTotalMass(body)
+				* m_sim_state.v().segment<3>(3 * body);
+	}
+
+	return p;
+}
+
+VectorXs SCISimApp::getSimState_L() {
+	const RigidBodySimState& m_sim_state = getSim_sim()->getState();
+	int N = m_sim_state.nbodies();
+	VectorXs L = VectorXs::Zero(N * 3);
+
+	// Contribution from center of mass
+	for (int body = 0; body < m_sim_state.nbodies(); ++body) {
+		L.segment<3>(3 * body) += m_sim_state.getTotalMass(body)
+				* m_sim_state.q().segment<3>(3 * body).cross(
+						m_sim_state.v().segment<3>(3 * body));
+	}
+
+	// Contribution from rotation about center of mass
+	for (int body = 0; body < m_sim_state.nbodies(); ++body) {
+		L.segment<3>(3 * body) += m_sim_state.getInertia(body)
+				* m_sim_state.v().segment<3>(
+						3 * m_sim_state.nbodies() + 3 * body);
+	}
+
+	return L;
 }
 

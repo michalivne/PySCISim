@@ -9,6 +9,7 @@
 #include "ThreeDRigidBodiesQt4/Window.h"
 #include "ThreeDRigidBodiesQt4/GLWidget.h"
 #include "ThreeDRigidBodiesQt4/ContentWidget.h"
+#include "ThreeDRigidBodies/Forces/Force.h"
 
 #include <QApplication>
 #include <QDesktopWidget>
@@ -42,10 +43,16 @@ public:
 	double getSim_U();
 	Eigen::Vector3d getSim_p();
 	Eigen::Vector3d getSim_L();
+	unsigned int getSim_collisions();
+	double getSim_collisions_penetration_depth();
 
 	MatrixXs getSimState_M();
 	VectorXs getSimState_q();
 	VectorXs getSimState_v();
+	VectorXs getSimState_T();
+	VectorXs getSimState_U();
+	VectorXs getSimState_p();
+	VectorXs getSimState_L();
 
 
 	ThreeDRigidBodySim* getSim_sim();
@@ -65,6 +72,9 @@ protected:
 	double time, T, U;
 	Eigen::Vector3d p;
 	Eigen::Vector3d L;
+
+	unsigned int number_of_collisions;
+	double collision_penetration_depth;
 
 	bool process_Qt_events;
 	static int Qt_argc;
