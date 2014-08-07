@@ -14,6 +14,8 @@ char *SCISimApp::Qt_argv[] = { "PySCISim" };
 
 SCISimApp::SCISimApp(bool process_Qt_events) :
 		process_Qt_events(process_Qt_events) {
+	collision_penetration_depth = 0.0;
+
 	get_gl_widget();
 	updateSimData();
 }
@@ -110,8 +112,10 @@ void SCISimApp::resetSystem() {
 
 void SCISimApp::updateSimData() {
 	m_gl_widget->getSimData(time, T, U, p, L);
-	m_gl_widget->get_sim()->computeNumberOfCollisions(number_of_collisions,
-			collision_penetration_depth);
+	number_of_collisions = m_gl_widget->get_sim()->computeNumberOfCollisions();
+	// FIXME: the next function generates warnings that crash ParallelPython.
+//	m_gl_widget->get_sim()->computeNumberOfCollisions(number_of_collisions,
+//			collision_penetration_depth);
 }
 
 double SCISimApp::getSim_time() {
