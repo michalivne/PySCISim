@@ -94,6 +94,7 @@ GLWidget* SCISimApp::get_gl_widget() {
 void SCISimApp::openScene(const std::string& xml_scene_file_name) {
 	get_gl_widget();
 	m_gl_widget->openScene(xml_scene_file_name.c_str());
+	updateSimData();
 }
 
 void SCISimApp::stepSystem() {
