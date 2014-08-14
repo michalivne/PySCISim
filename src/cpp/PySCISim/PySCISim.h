@@ -65,8 +65,8 @@ protected:
 	GLWidget* get_gl_widget();
 
 protected:
-	boost::shared_ptr<QApplication> app;
-	boost::shared_ptr<Window> window;
+	QApplication* app;
+	Window* window;
 	GLWidget* m_gl_widget;
 
 	double time, T, U;

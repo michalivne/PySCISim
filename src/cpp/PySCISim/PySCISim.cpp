@@ -16,20 +16,25 @@ SCISimApp::SCISimApp(bool process_Qt_events) :
 		process_Qt_events(process_Qt_events) {
 	collision_penetration_depth = 0.0;
 
+	//QApplication::setGraphicsSystem("opengl");
+	app = new QApplication(Qt_argc, Qt_argv);
+	window = new Window;
+
 	get_gl_widget();
 	updateSimData();
 }
 
 SCISimApp::~SCISimApp() {
-	if (app.get())
+	if (app) {
 		app->quit();
+	}
 
 	resetQt();
+
+	delete app;
 }
 
 void SCISimApp::resetQt() {
-	window = boost::shared_ptr<Window>();
-	app = boost::shared_ptr<QApplication>();
 }
 
 void SCISimApp::centerWindow() {
@@ -67,12 +72,6 @@ void SCISimApp::run(const std::string& xml_scene_file_name) {
 GLWidget* SCISimApp::get_gl_widget() {
 	// Make sure old window is destroyed
 	resetQt();
-
-	//QApplication::setGraphicsSystem("opengl");
-	app = boost::shared_ptr < QApplication
-			> (new QApplication(Qt_argc, Qt_argv));
-
-	window = boost::shared_ptr < Window > (new Window);
 
 	m_gl_widget = window->get_content_widget()->get_gl_widget();
 	m_gl_widget->useOpenGL(process_Qt_events);
