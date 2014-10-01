@@ -62,6 +62,7 @@ endif()
 
 if( IPOPT_LIB )
   set( IPOPT_FOUND TRUE )
+  message(STATUS "Found IpOpt: ${IPOPT_LIB}")
 else()
   set( IPOPT_FOUND FALSE )
   set( IPOPT_INC_DIRS "" )
