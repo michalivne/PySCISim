@@ -82,9 +82,9 @@ class SceneGenerator(object):
         
         return e
     
-    def add_near_earth_gravity(self, f_x="0.0 -9.81 0.0"):
+    def add_near_earth_gravity(self, f="0.0 -9.81 0.0"):
         return self.add_componenet(tag="near_earth_gravity",
-                            f_x=f_x)
+                            f=f)
         
     def add_geometry(self, name, type, geometry_params={}):
         e = self.add_componenet(tag="geometry",
