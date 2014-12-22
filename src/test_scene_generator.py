@@ -42,6 +42,6 @@ with Timer() as dt:
 
 print "Saved a scene in %.2e [Sec]" % dt.elapsed
 
-app = PySCISim.SCISimApp()
+app = PySCISim.SCISimApp(False)
 # app.openScene("scene.xml")
 app.run("scene.xml")

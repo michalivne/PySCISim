@@ -450,6 +450,9 @@ void GLWidget::resizeGL( int width, int height )
 
 void GLWidget::paintGL()
 {
+  if (!m_use_opengl)
+    return;
+
   glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
   glMatrixMode( GL_MODELVIEW );
@@ -1134,6 +1137,9 @@ QString generateLString( const Vector3s& delta_L0 )
 
 void GLWidget::paintHUD()
 {
+  if (!m_use_opengl)
+    return;
+
   static int text_width = 0;
 
   glPushAttrib( GL_MATRIX_MODE );

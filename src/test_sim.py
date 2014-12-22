@@ -11,12 +11,12 @@ from matplotlib import pyplot as plt
 # Control variables
 #===============================================================================
 SCENE_NAME = "GravityTest"
-SCENE_NAME = "SphereStaticPlaneTest"
+# SCENE_NAME = "SphereStaticPlaneTest"
 
 #===============================================================================
 # Main script
 #===============================================================================
-app = PySCISim.SCISimApp()
+app = PySCISim.SCISimApp(False)
 app.openScene(os.path.join(SCISIM_3D_ASSSETS_PATH, "Balls", 
                            SCENE_NAME+".xml"))
 
