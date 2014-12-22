@@ -6,6 +6,7 @@ from setup import *
 from scene_generator import SceneGenerator
 
 import numpy as np
+from contexttimer import Timer
 
 #===============================================================================
 # Control variables
@@ -34,7 +35,10 @@ scene.add_rigid_body_with_density(geometry_name="ball",
                                     rho="1.74040", 
                                     fixed="0")
 
-scene.save(XML_FILE_NAME)
+with Timer() as dt:
+    scene.save(XML_FILE_NAME)
+
+print "Saved a scene in %.2e [Sec]" % dt.elapsed
 
 app = PySCISim.SCISimApp()
 app.openScene("scene.xml")

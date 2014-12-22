@@ -1,7 +1,7 @@
 // GLWidget.cpp
 //
 // Breannan Smith
-// Last updated: 06/17/2014
+// Last updated: 12/10/2014
 
 #include "GLWidget.h"
 
@@ -10,58 +10,62 @@
 #include <cmath>
 #include <iostream>
 #include <fstream>
+#include <random>
 
 #include "ThreeDRigidBodiesUtils/XMLSceneParser.h"
 
-#include "SDIC/ConstrainedMaps/ImpactFrictionMap.h"
-#include "SDIC/ConstrainedMaps/ImpactMaps/ImpactMap.h"
-#include "SDIC/ConstrainedMaps/ImpactMaps/ImpactOperator.h"
-#include "SDIC/ConstrainedMaps/FrictionMaps/FrictionOperator.h"
-#include "SDIC/UnconstrainedMaps/UnconstrainedMap.h"
-#include "SDIC/MersenneTwister.h"
-#include "SDIC/Timer/Timer.h"
+#include "SCISim/Utilities.h"
+#include "SCISim/ConstrainedMaps/ImpactFrictionMap.h"
+#include "SCISim/ConstrainedMaps/ImpactMaps/ImpactMap.h"
+#include "SCISim/ConstrainedMaps/ImpactMaps/ImpactOperator.h"
+#include "SCISim/ConstrainedMaps/FrictionMaps/FrictionOperator.h"
+#include "SCISim/UnconstrainedMaps/UnconstrainedMap.h"
+#include "SCISim/Timer/Timer.h"
 
 #include "ThreeDRigidBodies/KinematicScripting.h"
 #include "ThreeDRigidBodies/Geometry/RigidBodyBox.h"
 #include "ThreeDRigidBodies/Geometry/RigidBodySphere.h"
 #include "ThreeDRigidBodies/Geometry/RigidBodyTriangleMesh.h"
 #include "ThreeDRigidBodies/Geometry/RigidBodyStaple.h"
+#include "ThreeDRigidBodies/StaticGeometry/StaticPlane.h"
 
 #include "ThreeDRigidBodies/RenderingState.h"
 #include "Rendering/OpenGL3DSphereRenderer.h"
 #include "Rendering/BodyGeometryRenderer.h"
 #include "Rendering/StapleRenderer.h"
+#include <iostream>
 
 GLWidget::GLWidget( QWidget* parent )
-: QGLWidget(QGLFormat(QGL::SampleBuffers), parent)
-, m_camera_controller()
+: QGLWidget( QGLFormat( QGL::SampleBuffers ), parent )
+, m_use_perspective_camera( true )
+, m_perspective_camera_controller()
+, m_orthographic_controller()
 , m_render_at_fps( false )
 , m_lock_camera( false )
 , m_last_pos()
 , m_left_mouse_button_pressed( false )
 , m_right_mouse_button_pressed( false )
 , m_body_colors()
-, m_display_precision(0)
+, m_display_precision( 0 )
 , m_display_HUD( true )
 , m_display_xy_grid( false )
 , m_display_yz_grid( false )
 , m_display_xz_grid( false )
-, m_use_opengl ( false )
 , m_movie_dir_name()
 , m_movie_dir()
-, m_output_frame(0)
+, m_output_frame( 0 )
 , m_output_fps()
 , m_steps_per_frame()
-, m_unconstrained_map( NULL )
-, m_impact_operator( NULL )
-, m_friction_operator( NULL )
-, m_impact_friction_map( NULL )
-, m_iteration(0)
-, m_dt(0.0)
+, m_unconstrained_map( nullptr )
+, m_impact_operator( nullptr )
+, m_friction_operator( nullptr )
+, m_impact_friction_map( nullptr )
+, m_scripting_callback( nullptr )
+, m_iteration( 0 )
+, m_dt( 0, 1 )
 , m_end_time( SCALAR_INFINITY )
 , m_CoR( SCALAR_NAN )
 , m_mu( SCALAR_NAN )
-, m_scripting_callback( NULL )
 , m_sim()
 , m_H0()
 , m_p0( Vector3s::Zero() )
@@ -69,29 +73,20 @@ GLWidget::GLWidget( QWidget* parent )
 , m_delta_H0( 0.0 )
 , m_delta_p0( Vector3s::Zero() )
 , m_delta_L0( Vector3s::Zero() )
-, m_sphere_renderer( NULL )
+, m_sphere_renderer( nullptr )
 , m_plane_renderers()
 , m_cylinder_renderers()
 , m_portal_renderers()
 , m_body_renderers()
-{}
+{
+}
 
 GLWidget::~GLWidget()
 {
-  if( m_scripting_callback != NULL ) delete m_scripting_callback;
-  if( m_unconstrained_map != NULL ) delete m_unconstrained_map;
-  if( m_impact_operator != NULL ) delete m_impact_operator;
-  if( m_friction_operator != NULL ) delete m_friction_operator;
-  if( m_impact_friction_map != NULL ) delete m_impact_friction_map;
-  if( m_sphere_renderer != NULL ) delete m_sphere_renderer;
-
-  for( std::vector<BodyGeometryRenderer*>::size_type i = 0; i < m_body_renderers.size(); ++i )
-  {
-    if( m_body_renderers[i] != NULL ) delete m_body_renderers[i];
-  }
-  
-  SAVE_TIMERS("timing.txt")
-  DELETE_TIMERS()
+  #ifdef ENABLE_TIMERS
+  std::ofstream( "timing.txt", std::ios::app );
+  SAVE_TIMERS( timer_stream )
+  #endif
 }
 
 QSize GLWidget::minimumSizeHint() const
@@ -104,66 +99,61 @@ QSize GLWidget::sizeHint() const
   return QSize( 512, 512 );
 }
 
-void GLWidget::openScene( const QString& xml_scene_file_name )
+int computeTimestepDisplayPrecision( const Rational<std::intmax_t>& dt, const std::string& dt_string )
 {
-  // TODO: Memory leak occurs here if multiple scenes loaded!
-  UnconstrainedMap* new_unconstrained_map = NULL;
-  ImpactOperator* new_impact_operator = NULL;
-  FrictionOperator* new_friction_operator = NULL;
-  ImpactFrictionMap* new_impact_friction_map = NULL;
+  if( dt_string.find( '.' ) != std::string::npos )
+  {
+    return int( StringUtilities::computeNumCharactersToRight( dt_string, '.' ) );
+  }
+  else
+  {
+    std::string converted_dt_string;
+    std::stringstream ss;
+    ss << std::fixed << scalar( dt );
+    ss >> converted_dt_string;
+    return int( StringUtilities::computeNumCharactersToRight( converted_dt_string, '.' ) );
+  }
+}
+
+bool GLWidget::openScene( const QString& xml_scene_file_name, unsigned& fps, bool& render_at_fps, bool& lock_camera )
+{
+  std::unique_ptr<UnconstrainedMap> new_unconstrained_map{ nullptr };
+  std::unique_ptr<ImpactOperator> new_impact_operator{ nullptr };
+  std::unique_ptr<FrictionOperator> new_friction_operator{ nullptr };
+  std::unique_ptr<ImpactFrictionMap> new_impact_friction_map{ nullptr };
 
   std::string dt_string = "";
   std::string scripting_callback = "";
   RigidBodySimState sim_state;
-  scalar dt;
+  Rational<std::intmax_t> dt;
   scalar end_time;
   scalar CoR;
   scalar mu;
   RenderingState new_render_state;
 
-  const bool loaded_successfully = XMLSceneParser::parseXMLSceneFile( xml_scene_file_name.toStdString(), scripting_callback, sim_state, &new_unconstrained_map, dt_string, dt, end_time, &new_impact_operator, CoR, &new_friction_operator, mu, &new_impact_friction_map, new_render_state );
+  const bool loaded_successfully = XMLSceneParser::parseXMLSceneFile( xml_scene_file_name.toStdString(), scripting_callback, sim_state, new_unconstrained_map, dt_string, dt, end_time, new_impact_operator, CoR, new_friction_operator, mu, new_impact_friction_map, new_render_state );
 
   if( !loaded_successfully )
   {
-    std::cout << "Load failed." << std::endl;
-    assert( new_unconstrained_map == NULL );
-    assert( new_impact_operator == NULL );
-    assert( new_friction_operator == NULL );
-    assert( new_impact_friction_map ==  NULL );
-    return;
+    std::cerr << "Failed to load file: " << xml_scene_file_name.toStdString() << std::endl;
+    return false;
   }
 
   //m_sim.resetCachedData();
-  
-  if( m_scripting_callback != NULL ) delete m_scripting_callback;
-  KinematicScripting::initializeScriptingCallback( scripting_callback, &m_scripting_callback );
-  assert( m_scripting_callback != NULL );
 
-  m_dt = dt;
+  m_scripting_callback = KinematicScripting::initializeScriptingCallback( scripting_callback );
+  assert( m_scripting_callback != nullptr );
+
   m_CoR = CoR;
   m_mu = mu;
 
   // Compute the number of characters after the decimal point in the timestep string
-  std::string::size_type right_start = dt_string.size();
-  for( std::string::size_type i = 0; i < dt_string.size(); ++i )
-  {
-    if( dt_string[i] == '.' )
-    {
-      right_start = i + 1;
-      break;
-    }
-  }
-  m_display_precision = (int) ( dt_string.size() - right_start );
+  m_display_precision = computeTimestepDisplayPrecision( m_dt, dt_string );
 
-  if( m_unconstrained_map != NULL ) delete m_unconstrained_map;
-  if( m_impact_operator != NULL ) delete m_impact_operator;
-  if( m_friction_operator != NULL ) delete m_friction_operator;
-  if( m_impact_friction_map != NULL ) delete m_impact_friction_map;
-
-  m_unconstrained_map = new_unconstrained_map;
-  m_impact_operator = new_impact_operator;
-  m_friction_operator = new_friction_operator;
-  m_impact_friction_map = new_impact_friction_map;
+  m_unconstrained_map.swap( new_unconstrained_map );
+  m_impact_operator.swap( new_impact_operator );
+  m_friction_operator.swap( new_friction_operator );
+  m_impact_friction_map.swap( new_impact_friction_map );
 
   m_sim.setState( sim_state );
   m_sim.clearConstraintCache();
@@ -199,59 +189,50 @@ void GLWidget::openScene( const QString& xml_scene_file_name )
       colors.push_back( green );
     }
 
-    MersenneTwister mt(0);
+    std::mt19937_64 mt( 0 );
+    std::uniform_int_distribution<unsigned> color_slector( 0, colors.size() - 1 );
     for( int i = 0; i < m_body_colors.size(); i += 3 )
     {
       // Select a random color
-      const unsigned long color_num = mt.genrand_long( colors.size() - 1 );
+      const unsigned color_num = color_slector( mt );
       assert( color_num < colors.size() );
-//      scalar r = 0.75; scalar g = 0.75; scalar b = 0.75;
-//      // TODO: Can probably handle this better by just generating in another colorspace, but whatever...
-//      // Generate colors until we get one with a luminance within [0.1,0.9]
-//      //while( (0.2126 * r + 0.7152 * g + 0.0722 * b) > 0.9 || (0.2126 * r + 0.7152 * g + 0.0722 * b) < 0.1 )
-//      //{
-//        r += (scalar) mt.genrand_real1();
-//        g += (scalar) mt.genrand_real1();
-//        b += (scalar) mt.genrand_real1();
-//      //}
-//      r *= 0.5;
-//      g *= 0.5;
-//      b *= 0.5;
-      m_body_colors.segment<3>(i) << colors[color_num].redF(), colors[color_num].greenF(), colors[color_num].blueF();
+      m_body_colors.segment<3>( i ) << colors[color_num].redF(), colors[color_num].greenF(), colors[color_num].blueF();
     }
   }
 
   // Create a renderer for the system
-  for( std::vector<BodyGeometryRenderer*>::size_type i = 0; i < m_body_renderers.size(); ++i )
-    if( m_body_renderers[i] != NULL ) delete m_body_renderers[i];
-  m_body_renderers.clear();
   m_body_renderers.resize( m_sim.getState().geometry().size() );
-  for( std::vector<RigidBodyGeometry*>::size_type i = 0; i < m_sim.getState().geometry().size(); ++i )
+  for( std::vector<std::unique_ptr<BodyGeometryRenderer>>::size_type i = 0; i < m_sim.getState().geometry().size(); ++i )
   {
     if( m_sim.getState().geometry()[i]->getType() == RigidBodyGeometry::STAPLE )
     {
-      const RigidBodyStaple& geo = *dynamic_cast<const RigidBodyStaple*>( m_sim.getState().geometry()[i] );
-      m_body_renderers[i] = new StapleRenderer( 4, geo.points(), geo.r() );
+      const RigidBodyStaple& geo = sd_cast<const RigidBodyStaple&>( *m_sim.getState().geometry()[i] );
+      m_body_renderers[i].reset( new StapleRenderer( 4, geo.points(), geo.r() ) );
     }
     else
     {
-      m_body_renderers[i] = NULL;
+      m_body_renderers[i].reset( nullptr );
     }
   }
 
+  // Save the timestep and compute related quantities
+  m_dt = dt;
+  assert( m_dt.positive() );
   m_iteration = 0;
-
   m_end_time = end_time;
   assert( m_end_time > 0.0 );
 
-  assert( m_sim.getState().q().size() == 12 * m_sim.getState().nbodies() );
-  
-  // Backup the simulation state
-  m_sim_state_backup = m_sim.getState();
+  m_output_fps = new_render_state.FPS();
+  m_render_at_fps = new_render_state.renderAtFPS();
+  m_lock_camera = new_render_state.locked();
 
-  m_output_frame = 0;
-  
-  m_steps_per_frame = floor( 1.0 / ( m_dt * m_output_fps ) + 0.5 );
+  // Output fps was set in ContentWidget's constructor
+  assert( m_output_fps > 0 );
+  setMovieFPS( m_output_fps );
+
+  // Backup the simulation state
+  assert( m_sim.getState().q().size() == 12 * m_sim.getState().nbodies() );
+  m_sim_state_backup = m_sim.getState();
 
   initializeRenderingSettings( new_render_state );
 
@@ -265,8 +246,24 @@ void GLWidget::openScene( const QString& xml_scene_file_name )
     std::cerr << "  Number of collisions:   " << num_initial_collisions << std::endl;
     std::cerr << "  TotalPenetration depth: " << penetration_depth << std::endl;
   }
-  
+
+  fps = new_render_state.FPS();
+  render_at_fps = new_render_state.renderAtFPS();
+  lock_camera = new_render_state.locked();
+
   updateGL();
+
+  return true;
+}
+
+OrthographicCameraController::ProjectionPlane stringToProjectionPlane( const std::string& projection_plane )
+{
+  if( projection_plane == "xy" ) return OrthographicCameraController::ProjectionPlane::XY;
+  else if( projection_plane == "zy" ) return OrthographicCameraController::ProjectionPlane::ZY;
+  else if( projection_plane == "zx" ) return OrthographicCameraController::ProjectionPlane::ZX;
+
+  std::cerr << "Impossible code path in stringToProjectionPlane. This is a bug." << std::endl;
+  std::exit( EXIT_FAILURE );
 }
 
 void GLWidget::initializeRenderingSettings( const RenderingState& rendering_state )
@@ -277,7 +274,7 @@ void GLWidget::initializeRenderingSettings( const RenderingState& rendering_stat
   {
     m_plane_renderers.push_back( StaticPlaneRenderer( rendering_state.planeRenderer(plane_renderer_index).index(), rendering_state.planeRenderer(plane_renderer_index).r() ) );
   }
-  
+
   // Create cylinder renderers
   m_cylinder_renderers.clear();
   for( unsigned cylinder_renderer_index = 0; cylinder_renderer_index < rendering_state.numCylinderRenderers(); ++cylinder_renderer_index )
@@ -292,20 +289,39 @@ void GLWidget::initializeRenderingSettings( const RenderingState& rendering_stat
     m_portal_renderers.push_back( PlanarPortalRenderer( rendering_state.portalRenderer( portal_renderer_index ).portalIndex(), rendering_state.portalRenderer( portal_renderer_index ).halfWidth0(), rendering_state.portalRenderer( portal_renderer_index ).halfWidth1() ) );
   }
 
+  const bool lock_backup = m_lock_camera;
+  m_lock_camera = false;
+
   // Set the camera
   if( rendering_state.cameraSettingsInitialized() )
   {
-    m_camera_controller.setCamera( rendering_state.cameraUp(), rendering_state.cameraTheta(), rendering_state.cameraPhi(), rendering_state.cameraRho(), rendering_state.cameraLookAt() );
+    if( rendering_state.perspectiveCameraSelected() )
+    {
+      m_use_perspective_camera = true;
+      m_perspective_camera_controller.setCamera( rendering_state.cameraUp(), rendering_state.cameraTheta(), rendering_state.cameraPhi(), rendering_state.cameraRho(), rendering_state.cameraLookAt() );
+    }
+    else if( rendering_state.orthographicCameraSelected() )
+    {
+      m_use_perspective_camera = false;
+      m_orthographic_controller.setCamera( stringToProjectionPlane( rendering_state.orthographicProjectionPlane() ), rendering_state.orthographicX(), rendering_state.orthographicScale() );
+    }
+    else
+    {
+      std::cerr << "Impossible code path in GLWidget::initializeRenderingSettings. This is a bug." << std::endl;
+      std::exit( EXIT_FAILURE );
+    }
   }
   else
   {
     centerCamera();
   }
+
+  m_lock_camera = lock_backup;
 }
 
 void GLWidget::stepSystem()
 {
-  if( m_iteration * m_dt >= m_end_time )
+  if( m_iteration * scalar( m_dt ) >= m_end_time )
   {
     std::cout << "Simulation complete. Exiting." << std::endl;
     std::exit( EXIT_SUCCESS );
@@ -313,27 +329,27 @@ void GLWidget::stepSystem()
 
   const int next_iter = m_iteration + 1;
 
-  assert( m_scripting_callback != NULL );
+  assert( m_scripting_callback != nullptr );
   m_scripting_callback->setRigidBodySimState( m_sim.state() );
   m_scripting_callback->startOfStepCallback( next_iter, m_dt );
 
-  if( m_unconstrained_map == NULL && m_impact_operator == NULL && m_friction_operator == NULL )
+  if( m_unconstrained_map == nullptr && m_impact_operator == nullptr && m_friction_operator == nullptr )
   {
     return;
   }
-  else if( m_unconstrained_map != NULL && m_impact_operator == NULL && m_friction_operator == NULL )
+  else if( m_unconstrained_map != nullptr && m_impact_operator == nullptr && m_friction_operator == nullptr )
   {
-    m_sim.flow( next_iter, m_dt, *m_unconstrained_map );
+    m_sim.flow( next_iter, scalar( m_dt ), *m_unconstrained_map );
   }
-  else if( m_unconstrained_map != NULL && m_impact_operator != NULL && m_friction_operator == NULL )
+  else if( m_unconstrained_map != nullptr && m_impact_operator != nullptr && m_friction_operator == nullptr )
   {
-    assert( m_scripting_callback != NULL );
-    m_sim.flow( *m_scripting_callback, next_iter, m_dt, *m_unconstrained_map, *m_impact_operator, m_CoR );
+    assert( m_scripting_callback != nullptr );
+    m_sim.flow( *m_scripting_callback, next_iter, scalar( m_dt ), *m_unconstrained_map, *m_impact_operator, m_CoR );
   }
-  else if( m_unconstrained_map != NULL && m_impact_operator != NULL && m_friction_operator != NULL && m_impact_friction_map != NULL )
+  else if( m_unconstrained_map != nullptr && m_impact_operator != nullptr && m_friction_operator != nullptr && m_impact_friction_map != nullptr )
   {
-    assert( m_scripting_callback != NULL );
-    m_sim.flow( *m_scripting_callback, next_iter, m_dt, *m_unconstrained_map, *m_impact_operator, m_CoR, *m_friction_operator, m_mu, *m_impact_friction_map );
+    assert( m_scripting_callback != nullptr );
+    m_sim.flow( *m_scripting_callback, next_iter, scalar( m_dt ), *m_unconstrained_map, *m_impact_operator, m_CoR, *m_friction_operator, m_mu, *m_impact_friction_map );
   }
   else
   {
@@ -372,7 +388,7 @@ void GLWidget::resetSystem()
   m_sim.setState( m_sim_state_backup );
   //m_sim.resetCachedData();
   m_sim.clearConstraintCache();
-  if( m_impact_friction_map != NULL ) m_impact_friction_map->resetCachedData();
+  if( m_impact_friction_map != nullptr ) m_impact_friction_map->resetCachedData();
 
   m_iteration = 0;
 
@@ -388,7 +404,7 @@ void GLWidget::resetSystem()
 
 void GLWidget::getSimData( double& time, double& T, double& U, Eigen::Vector3d& p, Eigen::Vector3d& L )
 {
-  time = m_iteration * m_dt;
+  time = m_iteration * scalar( m_dt );
 
   T = m_sim.computeKineticEnergy();
   U = m_sim.computePotentialEnergy();
@@ -400,17 +416,18 @@ void GLWidget::getSimData( double& time, double& T, double& U, Eigen::Vector3d& 
 void GLWidget::initializeGL()
 {
   glEnable( GL_DEPTH_TEST );
-  qglClearColor( QColor(255,255,255,255) );
+  qglClearColor( QColor( 255, 255, 255, 255 ) );
   glShadeModel( GL_SMOOTH );
   GLfloat global_ambient[] = { 0.5f, 0.5f, 0.5f, 1.0f };
   glLightModelfv( GL_LIGHT_MODEL_AMBIENT, global_ambient );
-  GLfloat diffuse[] = {1.0f, 1.0f, 1.0f , 1.0f};
+  GLfloat diffuse[] = { 1.0f, 1.0f, 1.0f , 1.0f };
   glLightfv( GL_LIGHT0, GL_DIFFUSE, diffuse );
   glEnable( GL_LIGHTING );
   glEnable( GL_LIGHT0 );
-  glEnable( GL_NORMALIZE ); // Prpobably slow... but fine for now
+  // TODO: Rework rendering code so GL_NORMALIZE is not needed
+  glEnable( GL_NORMALIZE );
 
-  m_sphere_renderer = new OpenGL3DSphereRenderer( 1.0, 4 );
+  m_sphere_renderer.reset( new OpenGL3DSphereRenderer( 4 ) );
 
   assert( checkGLErrors() );
 }
@@ -418,27 +435,34 @@ void GLWidget::initializeGL()
 void GLWidget::resizeGL( int width, int height )
 {
   assert( width >= 0 ); assert( height >= 0 );
-  glViewport( 0, 0, width, height );
 
-  glMatrixMode( GL_PROJECTION );
-  glLoadIdentity();
-
-  m_camera_controller.setPerspective( 54.43, (GLdouble) width / (GLdouble) height, 0.1, 1000.0 );
+  if( m_use_perspective_camera )
+  {
+    m_perspective_camera_controller.setPerspective( width, height );
+  }
+  else
+  {
+    m_orthographic_controller.setPerspective( width, height );
+  }
 
   assert( checkGLErrors() );
 }
 
 void GLWidget::paintGL()
 {
-  if (!m_use_opengl)
-	  return;
-
   glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
 
   glMatrixMode( GL_MODELVIEW );
   glLoadIdentity();
 
-  m_camera_controller.positionCamera();
+  if( m_use_perspective_camera )
+  {
+    m_perspective_camera_controller.positionCamera();
+  }
+  else
+  {
+    m_orthographic_controller.positionCamera();
+  }
 
   if( axesDrawingIsEnabled() ) paintAxes();
 
@@ -447,15 +471,14 @@ void GLWidget::paintGL()
   if( m_display_yz_grid ) paintYZRulers();
   
   if( m_display_xz_grid ) paintXZRulers();
-  
+
   paintSystem();
 
   if( m_display_HUD ) paintHUD();
 
   assert( autoBufferSwap() );
 
-  // FIXME: assertion happens when running GUI from Python.
-//  assert( checkGLErrors() );
+  assert( checkGLErrors() );
 }
 
 bool GLWidget::axesDrawingIsEnabled() const
@@ -521,7 +544,7 @@ void GLWidget::paintXYRulers() const
   glPushAttrib(GL_COLOR);
   glPushAttrib(GL_LIGHTING);
   glPushAttrib(GL_LINE_WIDTH);
-  
+
   glDisable(GL_LIGHTING);
 
   glLineWidth(0.5);
@@ -559,7 +582,7 @@ void GLWidget::paintXYRulers() const
   glVertex3d( 0.0, -grid_width, 0.0 );
   glVertex3d( 0.0,  grid_width, 0.0 );
   glEnd();
-  
+
   glPopAttrib();
   glPopAttrib();
   glPopAttrib();
@@ -568,13 +591,13 @@ void GLWidget::paintXYRulers() const
 void GLWidget::paintYZRulers() const
 {
   const int grid_width = 20;
-  
+
   glPushAttrib(GL_COLOR);
   glPushAttrib(GL_LIGHTING);
   glPushAttrib(GL_LINE_WIDTH);
-  
+
   glDisable(GL_LIGHTING);
-  
+
   glLineWidth(0.5);
   glColor3d(0.5,0.5,0.5);
   glBegin( GL_LINES );
@@ -585,14 +608,14 @@ void GLWidget::paintYZRulers() const
     glVertex3d( 0.0, y, grid_width );
   }
   glEnd();
-  
+
   glLineWidth(3.0);
   glColor3d(0.0,0.0,0.0);
   glBegin( GL_LINES );
   glVertex3d( 0.0, 0.0, -grid_width );
   glVertex3d( 0.0, 0.0,  grid_width );
   glEnd();
-  
+
   glLineWidth(0.5);
   glColor3d(0.5,0.5,0.5);
   glBegin( GL_LINES );
@@ -603,14 +626,14 @@ void GLWidget::paintYZRulers() const
     glVertex3d( 0.0,  grid_width, z );
   }
   glEnd();
-  
+
   glLineWidth(3.0);
   glColor3d(0.0,0.0,0.0);
   glBegin( GL_LINES );
   glVertex3d( 0.0, -grid_width, 0.0 );
   glVertex3d( 0.0,  grid_width, 0.0 );
   glEnd();
-  
+
   glPopAttrib();
   glPopAttrib();
   glPopAttrib();
@@ -619,13 +642,13 @@ void GLWidget::paintYZRulers() const
 void GLWidget::paintXZRulers() const
 {
   const int grid_width = 20;
-  
+
   glPushAttrib(GL_COLOR);
   glPushAttrib(GL_LIGHTING);
   glPushAttrib(GL_LINE_WIDTH);
-  
+
   glDisable(GL_LIGHTING);
-  
+
   glLineWidth(0.5);
   glColor3d(0.5,0.5,0.5);
   glBegin( GL_LINES );
@@ -654,14 +677,14 @@ void GLWidget::paintXZRulers() const
     glVertex3d(  grid_width, 0.0, z );
   }
   glEnd();
-  
+
   glLineWidth(3.0);
   glColor3d(0.0,0.0,0.0);
   glBegin( GL_LINES );
   glVertex3d( -grid_width, 0.0, 0.0 );
   glVertex3d(  grid_width, 0.0, 0.0 );
   glEnd();
-  
+
   glPopAttrib();
   glPopAttrib();
   glPopAttrib();
@@ -688,28 +711,24 @@ void GLWidget::lockCamera( const bool lock_camera )
 void GLWidget::toggleHUD()
 {
   m_display_HUD = !m_display_HUD;
-
   updateGL();
 }
 
 void GLWidget::toggleXYGrid()
 {
   m_display_xy_grid = !m_display_xy_grid;
-
   updateGL();
 }
 
 void GLWidget::toggleYZGrid()
 {
   m_display_yz_grid = !m_display_yz_grid;
-  
   updateGL();
 }
 
 void GLWidget::toggleXZGrid()
 {
   m_display_xz_grid = !m_display_xz_grid;
-  
   updateGL();
 }
 
@@ -717,22 +736,94 @@ void GLWidget::centerCamera()
 {
   if( m_lock_camera ) return;
 
+  if( m_sim.empty() )
+  {
+    if( m_use_perspective_camera )
+    {
+      m_perspective_camera_controller.reset();
+    }
+    else
+    {
+      m_orthographic_controller.reset();
+    }
+    return;
+  }
+
   scalar radius;
   Eigen::Matrix<GLdouble,3,1> center;
   m_sim.computeBoundingSphere( radius, center );
-  m_camera_controller.centerCameraAtSphere( center, radius );
+
+  if( m_use_perspective_camera )
+  {
+    m_perspective_camera_controller.centerCameraAtSphere( center, radius );
+  }
+  else
+  {
+    GLint viewport[4];
+    glGetIntegerv( GL_VIEWPORT, viewport );
+    const GLint width = viewport[2];
+    const GLint height = viewport[3];
+
+    const GLdouble ratio = GLdouble( height ) / GLdouble( width );
+    const GLdouble scale = std::max( ratio * radius, radius );
+
+    m_orthographic_controller.setCenterAndScale( center, scale );
+  }
 
   updateGL();
 }
 
-void GLWidget::useOpenGL(bool b) {
-	m_use_opengl = b;
+void GLWidget::enablePerspectiveCamera()
+{
+  m_use_perspective_camera = true;
+  GLint viewport[4];
+  glGetIntegerv( GL_VIEWPORT, viewport );
+  const GLint width = viewport[2];
+  const GLint height = viewport[3];
+  m_perspective_camera_controller.setPerspective( width, height );
+  centerCamera();
+}
+
+void GLWidget::enableOrthographicXYCamera()
+{
+  m_use_perspective_camera = false;
+  m_orthographic_controller.useXYView();
+  GLint viewport[4];
+  glGetIntegerv( GL_VIEWPORT, viewport );
+  const GLint width = viewport[2];
+  const GLint height = viewport[3];
+  m_orthographic_controller.setPerspective( width, height );
+  centerCamera();
+}
+
+void GLWidget::enableOrthographicZYCamera()
+{
+  m_use_perspective_camera = false;
+  m_orthographic_controller.useZYView();
+  GLint viewport[4];
+  glGetIntegerv( GL_VIEWPORT, viewport );
+  const GLint width = viewport[2];
+  const GLint height = viewport[3];
+  m_orthographic_controller.setPerspective( width, height );
+  centerCamera();
+}
+
+void GLWidget::enableOrthographicZXCamera()
+{
+  m_use_perspective_camera = false;
+  m_orthographic_controller.useZXView();
+  GLint viewport[4];
+  glGetIntegerv( GL_VIEWPORT, viewport );
+  const GLint width = viewport[2];
+  const GLint height = viewport[3];
+  m_orthographic_controller.setPerspective( width, height );
+  centerCamera();
 }
 
 void GLWidget::saveScreenshot( const QString& file_name )
 {
-  std::cout << "Saving screenshot of time " << m_iteration * m_dt << " to " << file_name.toStdString() << std::endl;
-  QImage frame_buffer = grabFrameBuffer();
+  std::cout << "Saving screenshot of time " << m_iteration * scalar( m_dt ) << " to " << file_name.toStdString() << std::endl;
+  const QImage frame_buffer = grabFrameBuffer();
   frame_buffer.save( file_name );
 }
 
@@ -753,19 +844,64 @@ void GLWidget::setMovieDir( const QString& dir_name )
   }
 }
 
-void GLWidget::setMovieFPS( const int fps )
+void GLWidget::setMovieFPS( const unsigned fps )
 {
   assert( fps > 0 );
   m_output_fps = fps;
-  m_steps_per_frame = floor( 1.0 / ( m_dt * m_output_fps ) + 0.5 );
-  //std::cout << "steps per frame: " << m_steps_per_frame << std::endl;
-  //std::cout << "    " << 1.0 / ( m_rod_sim.timestep() * m_output_fps ) << std::endl;
+  m_output_frame = 0;
+  if( 1.0 < scalar( m_dt * std::intmax_t( m_output_fps ) ) )
+  {
+    std::cerr << "Warning, requested movie frame rate faster than timestep. Dumping at timestep rate." << std::endl;
+    m_steps_per_frame = 1;
+  }
+  else
+  {
+    const Rational<std::intmax_t> potential_steps_per_frame = std::intmax_t( 1 ) / ( m_dt * std::intmax_t( m_output_fps ) );
+    if( !potential_steps_per_frame.isInteger() )
+    {
+      if( m_sim.state().nbodies() != 0 )
+      {
+        std::cerr << "Warning, timestep and output frequency do not yield an integer number of timesteps for data output. Dumping at timestep rate." << std::endl;
+      }
+      m_steps_per_frame = 1;
+    }
+    else
+    {
+      m_steps_per_frame = unsigned( potential_steps_per_frame.numerator() );
+    }
+  }
+}
+
+std::string projectionPlaneToString( const OrthographicCameraController::ProjectionPlane projection_plane )
+{
+  if( projection_plane == OrthographicCameraController::ProjectionPlane::XY )
+  {
+    return "xy";
+  }
+  else if( projection_plane == OrthographicCameraController::ProjectionPlane::ZX )
+  {
+    return "zx";
+  }
+  else if( projection_plane == OrthographicCameraController::ProjectionPlane::ZY )
+  {
+    return "zy";
+  }
+  std::cerr << "Impossible code path hit in projectionPlaneToString. This is a bug." << std::endl;
+  std::exit( EXIT_FAILURE );
 }
 
 void GLWidget::exportCameraSettings()
 {
-  std::cout << "<camera theta=\"" << m_camera_controller.theta() << "\" phi=\"" << m_camera_controller.phi() << "\" rho=\"";
-  std::cout << m_camera_controller.rho() << "\" lookat=\"" << m_camera_controller.lookat().transpose() << "\" up=\"" << m_camera_controller.up().transpose() << "\"/>" << std::endl;
+  if( m_use_perspective_camera )
+  {
+    std::cout << "<camera_perspective theta=\"" << m_perspective_camera_controller.theta() << "\" phi=\"" << m_perspective_camera_controller.phi() << "\" rho=\"";
+    std::cout << m_perspective_camera_controller.rho() << "\" lookat=\"" << m_perspective_camera_controller.lookat().transpose() << "\" up=\"";
+    std::cout << m_perspective_camera_controller.up().transpose() << "\" fps=\"" << m_output_fps << "\" render_at_fps=\"" << m_render_at_fps << "\" locked=\"" << m_lock_camera << "\"/>" << std::endl;
+  }
+  else
+  {
+    std::cout << "<camera_orthographic projection_plane=\"" << projectionPlaneToString( m_orthographic_controller.projectionPlane() ) << "\" x=\"" << m_orthographic_controller.x().x() << " " << m_orthographic_controller.x().y() << " " << m_orthographic_controller.x().z() << "\" scale=\"" << m_orthographic_controller.scale() << "\" fps=\"" << m_output_fps << "\" render_at_fps=\"" << m_render_at_fps << "\" locked=\"" << m_lock_camera << "\"/>" << std::endl;
+  }
 }
 
 void GLWidget::paintSphere( const RigidBodySphere& sphere, const Vector3s& color ) const
@@ -773,7 +909,7 @@ void GLWidget::paintSphere( const RigidBodySphere& sphere, const Vector3s& color
   const Eigen::Matrix<GLfloat,3,1> primary_color = color.cast<GLfloat>();
   const Eigen::Matrix<GLfloat,3,1> secondary_color( 1.0, 1.0, 1.0 );
   glScaled( sphere.r(), sphere.r(), sphere.r() );
-  assert( m_sphere_renderer != NULL );
+  assert( m_sphere_renderer != nullptr );
   m_sphere_renderer->drawVertexArray( primary_color, secondary_color );
 }
 
@@ -799,9 +935,9 @@ void GLWidget::paintBox( const RigidBodyBox& box, const Vector3s& color ) const
   glMaterialfv( GL_FRONT_AND_BACK, GL_AMBIENT, mcolorambient );
   GLfloat mcolordiffuse[] = { (GLfloat) (0.9 * color.x()), (GLfloat) (0.9 * color.y()), (GLfloat) (0.9 * color.z()), (GLfloat) 1.0 };
   glMaterialfv( GL_FRONT_AND_BACK, GL_DIFFUSE, mcolordiffuse );
-  
+
   glScaled( box.halfWidths().x(), box.halfWidths().y(), box.halfWidths().z() );
-  
+
   glBegin(GL_QUADS);
     // Top of the box
     glNormal3d((GLdouble)0.0,(GLdouble)1.0,(GLdouble)0.0);
@@ -872,30 +1008,27 @@ void GLWidget::paintTriangleMesh( const RigidBodyTriangleMesh& mesh, const Vecto
   glEnd();
 }
 
-void GLWidget::paintBody( const int geo_idx, const RigidBodyGeometry* geometry, const Vector3s& color ) const
+void GLWidget::paintBody( const int geo_idx, const RigidBodyGeometry& geometry, const Vector3s& color ) const
 {
-  assert( geometry != NULL );
-  // Determine which geometry type this is and execute the specific rendering routine
-  
-  if( geometry->getType() == RigidBodyGeometry::BOX )
+  if( geometry.getType() == RigidBodyGeometry::BOX )
   {
-    const RigidBodyBox& box_geom = *dynamic_cast<const RigidBodyBox*>( geometry );
+    const RigidBodyBox& box_geom = sd_cast<const RigidBodyBox&>( geometry );
     paintBox( box_geom, color );
   }
-  else if( geometry->getType() == RigidBodyGeometry::SPHERE )
+  else if( geometry.getType() == RigidBodyGeometry::SPHERE )
   {
-    const RigidBodySphere& sphere_geom = *dynamic_cast<const RigidBodySphere*>( geometry );
+    const RigidBodySphere& sphere_geom = sd_cast<const RigidBodySphere&>( geometry );
     paintSphere( sphere_geom, color );
   }
-  else if( geometry->getType() == RigidBodyGeometry::STAPLE )
+  else if( geometry.getType() == RigidBodyGeometry::STAPLE )
   {
-    assert( geo_idx >= 0 ); assert( geo_idx < (int) m_body_renderers.size() );
-    assert( m_body_renderers[geo_idx] != NULL );
+    assert( geo_idx >= 0 ); assert( geo_idx < int( m_body_renderers.size() ) );
+    assert( m_body_renderers[geo_idx] != nullptr );
     m_body_renderers[geo_idx]->renderBody( color.cast<GLfloat>() );
   }
-  else if( geometry->getType() == RigidBodyGeometry::TRIANGLE_MESH )
+  else if( geometry.getType() == RigidBodyGeometry::TRIANGLE_MESH )
   {
-    const RigidBodyTriangleMesh& triangle_geom = *dynamic_cast<const RigidBodyTriangleMesh*>( geometry );
+    const RigidBodyTriangleMesh& triangle_geom = sd_cast<const RigidBodyTriangleMesh&>( geometry );
     paintTriangleMesh( triangle_geom, color );
   }
   else
@@ -928,16 +1061,17 @@ void GLWidget::paintSystem() const
   }
 
   // Draw any static planes
-  for( std::vector<StaticPlaneRenderer>::size_type i = 0; i < m_plane_renderers.size(); ++i )
+  for( const StaticPlaneRenderer& plane_renderer : m_plane_renderers )
   {
-    assert( m_plane_renderers[i].idx() < m_sim.state().staticPlanes().size() );
-    m_plane_renderers[i].draw( m_sim.state().staticPlanes()[ m_plane_renderers[i].idx() ] );
+    assert( plane_renderer.idx() < m_sim.state().staticPlanes().size() );
+    plane_renderer.draw( m_sim.state().staticPlanes()[ plane_renderer.idx() ] );
   }
   // Draw any static cylinders
-  for( std::vector<StaticCylinderRenderer>::size_type i = 0; i < m_cylinder_renderers.size(); ++i )
+  for( const StaticCylinderRenderer& cylinder_renderer : m_cylinder_renderers )
   {
-    assert( m_cylinder_renderers[i].idx() >= 0 ); assert( m_cylinder_renderers[i].idx() < (int) m_sim.state().staticCylinders().size() );
-    m_cylinder_renderers[i].draw( m_sim.state().staticCylinders()[ m_cylinder_renderers[i].idx() ] );
+    assert( cylinder_renderer.idx() >= 0 );
+    assert( cylinder_renderer.idx() < int( m_sim.state().staticCylinders().size() ) );
+    cylinder_renderer.draw( m_sim.state().staticCylinders()[ cylinder_renderer.idx() ] );
   }
   // Draw any planar portals
   glPushAttrib( GL_COLOR );
@@ -946,15 +1080,16 @@ void GLWidget::paintSystem() const
   glDisable( GL_LIGHTING );
   glLineWidth( 2.0 );
   {
-    MersenneTwister random_number_gen( 123456 );
-    for( std::vector<PlanarPortalRenderer>::size_type i = 0; i < m_portal_renderers.size(); ++i )
+    std::mt19937_64 mt( 123456 );
+    std::uniform_int_distribution<int> color_gen( 0, 255 );
+    for( const PlanarPortalRenderer& portal_renderer : m_portal_renderers )
     {
-      double r = random_number_gen.genrand_real1() * 255.0;
-      double g = random_number_gen.genrand_real1() * 255.0;
-      double b = random_number_gen.genrand_real1() * 255.0;
-      qglColor( QColor( (int) r, (int) g, (int) b ) );
-      assert( m_portal_renderers[i].idx() < m_sim.state().numPlanarPortals() );
-      m_portal_renderers[i].draw( m_sim.state().planarPortal( m_portal_renderers[i].idx() ) );
+      const int r = color_gen( mt );
+      const int g = color_gen( mt );
+      const int b = color_gen( mt );
+      qglColor( QColor( r, g, b ) );
+      assert( portal_renderer.idx() < m_sim.state().numPlanarPortals() );
+      portal_renderer.draw( m_sim.state().planarPortal( portal_renderer.idx() ) );
     }
   }
   glPopAttrib();
@@ -962,34 +1097,118 @@ void GLWidget::paintSystem() const
   glPopAttrib();
 }
 
+QString generateTimeString( const unsigned iteration, const Rational<std::intmax_t>& dt, const int display_precision, const scalar& end_time )
+{
+  QString time_string( QObject::tr(" t: ") );
+  time_string += QString::number( iteration * scalar( dt ), 'f', display_precision );
+  if( end_time != SCALAR_INFINITY )
+  {
+    time_string += QString( QObject::tr(" / ") );
+    time_string += QString::number( end_time );
+  }
+  return time_string;
+}
+
+QString generateHString( const scalar& delta_H0 )
+{
+  return QString( QObject::tr("dH: ") ) + QString::number( delta_H0 );
+}
+
+QString generatePString( const Vector3s& delta_p0 )
+{
+  QString pstring( QObject::tr("dp: ") );
+  pstring += QString::number( delta_p0.x() ) + " ";
+  pstring += QString::number( delta_p0.y() ) + " ";
+  pstring += QString::number( delta_p0.z() );
+  return pstring;
+}
+
+QString generateLString( const Vector3s& delta_L0 )
+{
+  QString Lstring( QObject::tr("dL: ") );
+  Lstring += QString::number( delta_L0.x() ) + " ";
+  Lstring += QString::number( delta_L0.y() ) + " ";
+  Lstring += QString::number( delta_L0.z() );
+  return Lstring;
+}
+
 void GLWidget::paintHUD()
 {
-  if (!m_use_opengl)
-	  return;
+  static int text_width = 0;
+
+  glPushAttrib( GL_MATRIX_MODE );
+  glMatrixMode( GL_PROJECTION );
+  glPushMatrix();
+  glMatrixMode( GL_MODELVIEW );
+  glPushMatrix();
+
+  // Set an orthographic projection with height and width equal to window height and width
+  glMatrixMode( GL_PROJECTION );
+  glLoadIdentity();
+  GLint width;
+  GLint height;
+  getViewportDimensions( width, height );
+  glOrtho( 0, width, 0, height, -1, 1 );
+  glMatrixMode( GL_MODELVIEW );
+  glLoadIdentity();
+
+  // Enable blending for transparent HUD elements
+  glPushAttrib( GL_LIGHTING );
+  glDisable( GL_LIGHTING );
+  glPushAttrib( GL_BLEND );
+  glEnable( GL_BLEND );
+  glBlendFunc( GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA );
+
+  // Draw a semi-transparent overlay so text is visible regardless of background color
+  const Eigen::Matrix<GLdouble,2,1> overlay_start( 0, height - 4 * 12 - 2 );
+  const Eigen::Matrix<GLdouble,2,1> overlay_extnt( text_width + 2 + 2, height );
+  glColor4d( 0.0, 0.0, 0.0, 0.5 );
+  glBegin( GL_QUADS );
+  glVertex2d( GLdouble( overlay_start.x() ), GLdouble( overlay_start.y() ) );
+  glVertex2d( GLdouble( overlay_start.x() + overlay_extnt.x() ), GLdouble( overlay_start.y() ) );
+  glVertex2d( GLdouble( overlay_start.x() + overlay_extnt.x() ), GLdouble( overlay_start.y() + overlay_extnt.y() ) );
+  glVertex2d( GLdouble( overlay_start.x() ), GLdouble( overlay_start.y() + overlay_extnt.y() ) );
+  glEnd();
+
+  glDisable( GL_BLEND );
+  glPopAttrib();
+  glPopAttrib();
+
+  glMatrixMode( GL_MODELVIEW );
+  glPopMatrix();
+  glMatrixMode( GL_PROJECTION );
+  glPopMatrix();
+  glPopAttrib();
 
   // String to display in upper left corner
-  const QString time_string  = QString( tr(" t: ") ) + QString::number( m_iteration * m_dt, 'f', m_display_precision ) + ( m_end_time != SCALAR_INFINITY ? QString( tr(" / ") ) + QString::number( m_end_time ) : QString( tr("") ) );
-  const QString delta_H      = QString( tr("dH: ") ) + QString::number( m_delta_H0 );
-  const QString delta_p      = QString( tr("dp: ") ) + QString::number( m_delta_p0.x() ) + " " + QString::number( m_delta_p0.y() ) + " " + QString::number( m_delta_p0.z() );
-  const QString delta_L      = QString( tr("dL: ") ) + QString::number( m_delta_L0.x() ) + " " + QString::number( m_delta_L0.y() ) + " " + QString::number( m_delta_L0.z() );
+  const QString time_string = generateTimeString( m_iteration, m_dt, m_display_precision, m_end_time );
+  const QString delta_H = generateHString( m_delta_H0 );
+  const QString delta_p = generatePString( m_delta_p0 );
+  const QString delta_L = generateLString( m_delta_L0 );
+  {
+    const QFontMetrics font_metrics( QFont( "Courier", 12 ) );
+    text_width = std::max( text_width, font_metrics.boundingRect( time_string ).width() );
+    text_width = std::max( text_width, font_metrics.boundingRect( delta_H ).width() );
+    text_width = std::max( text_width, font_metrics.boundingRect( delta_p ).width() );
+    text_width = std::max( text_width, font_metrics.boundingRect( delta_L ).width() );
+  }
 
-  qglColor( QColor( 0, 0, 0 ) );
-  QFont font("Courier");
-  //font.setStyleHint( QFont::TypeWriter );
-  font.setPointSize( 12 );
+  qglColor( QColor( 255, 255, 255 ) );
+  const QFont font( "Courier", 12 );
   renderText( 2, font.pointSize(), time_string, font );
   renderText( 2, 2 * font.pointSize(), delta_H, font );
   renderText( 2, 3 * font.pointSize(), delta_p, font );
   renderText( 2, 4 * font.pointSize(), delta_L, font );
 
-  // FIXME: check why we get errors here.
+  // FIXME: we always get error here
 //  assert( checkGLErrors() );
+  glGetError();
 }
 
 void GLWidget::mousePressEvent( QMouseEvent* event )
 {
   if( m_lock_camera ) return;
-  
+
   bool repaint_needed = false;
 
   if( event->buttons() & Qt::LeftButton )
@@ -1029,33 +1248,51 @@ void GLWidget::mouseReleaseEvent( QMouseEvent* event )
 void GLWidget::mouseMoveEvent( QMouseEvent* event )
 {
   if( m_lock_camera ) return;
-  
+
   const int dx = event->x() - m_last_pos.x();
   const int dy = event->y() - m_last_pos.y();
   m_last_pos = event->pos();
 
-  if( event->buttons() & Qt::LeftButton )
+  if( m_use_perspective_camera )
   {
-    const GLdouble horizontal_amount = 0.01*(GLdouble)dx;
-    const GLdouble vertical_amount =   0.01*(GLdouble)dy;
-    m_camera_controller.addToZenithAngle( -vertical_amount );
-    m_camera_controller.addToAzimuthAngle( -horizontal_amount );
-    updateGL();
+    if( event->buttons() & Qt::LeftButton )
+    {
+      const GLdouble horizontal_amount = 0.01 * GLdouble( dx );
+      const GLdouble vertical_amount =   0.01 * GLdouble( dy );
+      m_perspective_camera_controller.addToZenithAngle( -vertical_amount );
+      m_perspective_camera_controller.addToAzimuthAngle( -horizontal_amount );
+      updateGL();
+    }
+    else if( event->buttons() & Qt::MidButton )
+    {
+      const GLdouble horizontal_amount = 0.002 * GLdouble( dx );
+      const GLdouble vertical_amount =   0.002 * GLdouble( dy );
+      m_perspective_camera_controller.trackCameraHorizontal( -m_perspective_camera_controller.getDistFromCenter() * horizontal_amount );
+      m_perspective_camera_controller.trackCameraVertical( m_perspective_camera_controller.getDistFromCenter() * vertical_amount  );
+      updateGL();
+    }
+    else if( event->buttons() & Qt::RightButton )
+    {
+      const GLdouble horizontal_amount = 0.01 * GLdouble( dx );
+      const GLdouble vertical_amount =   0.01 * GLdouble( dy );
+      m_perspective_camera_controller.addToDistFromCenter( m_perspective_camera_controller.getDistFromCenter() * ( horizontal_amount - vertical_amount ) );
+      updateGL();
+    }
   }
-  else if( event->buttons() & Qt::MidButton )
+  else
   {
-    const GLdouble horizontal_amount = 0.002*(GLdouble)dx;
-    const GLdouble vertical_amount =   0.002*(GLdouble)dy;
-    m_camera_controller.trackCameraHorizontal( -m_camera_controller.getDistFromCenter()*horizontal_amount );
-    m_camera_controller.trackCameraVertical( m_camera_controller.getDistFromCenter()*vertical_amount  );
-    updateGL();
-  }
-  else if( event->buttons() & Qt::RightButton )
-  {
-    const GLdouble horizontal_amount = 0.01*(GLdouble)dx;
-    const GLdouble vertical_amount =   0.01*(GLdouble)dy;
-    m_camera_controller.addToDistFromCenter( m_camera_controller.getDistFromCenter()*(horizontal_amount-vertical_amount) );
-    updateGL();
+    if( event->buttons() & Qt::LeftButton )
+    {
+      m_orthographic_controller.translateView( dx, dy );
+      updateGL();
+    }
+    else if( event->buttons() & Qt::RightButton )
+    {
+      const GLdouble horizontal_amount = GLdouble( dx );
+      const GLdouble vertical_amount =   GLdouble( dy );
+      m_orthographic_controller.addToDistFromCenter( 0.1 * ( horizontal_amount - vertical_amount ) );
+      updateGL();
+    }
   }
 
   assert( checkGLErrors() );
@@ -1064,8 +1301,16 @@ void GLWidget::mouseMoveEvent( QMouseEvent* event )
 void GLWidget::wheelEvent( QWheelEvent* event )
 {
   if( m_lock_camera ) return;
-  
-  m_camera_controller.addToDistFromCenter( -0.002*m_camera_controller.getDistFromCenter()*event->delta() );
+
+  if( m_use_perspective_camera )
+  {
+    m_perspective_camera_controller.addToDistFromCenter( -0.002 * m_perspective_camera_controller.getDistFromCenter() * event->delta() );
+  }
+  else
+  {
+    m_orthographic_controller.addToDistFromCenter( -0.05 * event->delta() );
+  }
+
   updateGL();
 
   assert( checkGLErrors() );
@@ -1116,10 +1361,14 @@ bool GLWidget::checkGLErrors()
   return true;
 }
 
+void GLWidget::useOpenGL(bool b) {
+  m_use_opengl = b;
+}
+
 ThreeDRigidBodySim* GLWidget::get_sim() {
-	return &m_sim;
+  return &m_sim;
 }
 
 RigidBodySimState* GLWidget::get_sim_state_backup() {
-	return &m_sim_state_backup;
+  return &m_sim_state_backup;
 }

@@ -1,7 +1,7 @@
 // ContentWidget.h
 //
 // Breannan Smith
-// Last updated: 06/17/2014
+// Last updated: 12/10/2014
 
 #ifndef __CONTENT_WIDGET_H__
 #define __CONTENT_WIDGET_H__
@@ -53,7 +53,12 @@ public slots:
   void movieFPSChanged( int fps );
 
   void exportCameraSettings();
-  
+
+  void enablePerspectiveCamera();
+  void enableOrthographicXYCamera();
+  void enableOrthographicZYCamera();
+  void enableOrthographicZXCamera();
+
   GLWidget* get_gl_widget();
 
 protected:
@@ -82,6 +87,8 @@ private:
   QCheckBox* m_export_movie_checkbox;
 
   QString m_xml_file_name;
+
+  QSpinBox* m_fps_spin_box;
 
 };
 

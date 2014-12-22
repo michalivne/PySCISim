@@ -29,7 +29,7 @@ public:
 	void run(const std::string& xml_scene_file_name="");
 
 	// simulation interface
-	void openScene(const std::string& xml_scene_file_name);
+	void openScene(const std::string& xml_scene_file_name, unsigned fps=30, bool render_at_fps=true, bool lock_camera=false );
 
 	// Methods to control the solver
 	void stepSystem();

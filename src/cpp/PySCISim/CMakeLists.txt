@@ -54,31 +54,35 @@ SET(PYSCISIM_FILES PySCISim.cpp PySCISim.h)
 
 SET(ThreeDRigidBodiesQt4_FILES 
     ThreeDRigidBodiesQt4/ContentWidget.cpp
-    ThreeDRigidBodiesQt4/EnergyWindow.cpp
     ThreeDRigidBodiesQt4/GLWidget.cpp
-    ThreeDRigidBodiesQt4/QCustomPlot/qcustomplot.cpp
-    ThreeDRigidBodiesQt4/CameraController.cpp
     ThreeDRigidBodiesQt4/Window.cpp
-    ThreeDRigidBodiesQt4/Rendering/OpenGL3DSphereRenderer.cpp
-    ThreeDRigidBodiesQt4/Rendering/PlanarPortalRenderer.cpp
-    ThreeDRigidBodiesQt4/Rendering/StaticCylinderRenderer.cpp
     ThreeDRigidBodiesQt4/Rendering/StaticPlaneRenderer.cpp
-    ThreeDRigidBodiesQt4/Rendering/StapleRenderer.cpp
-    ThreeDRigidBodiesQt4/Rendering/BodyGeometryRenderer.cpp
-    
+
     ThreeDRigidBodiesQt4/ContentWidget.h
-    ThreeDRigidBodiesQt4/EnergyWindow.h
     ThreeDRigidBodiesQt4/GLWidget.h
-    ThreeDRigidBodiesQt4/QCustomPlot/qcustomplot.h
-    ThreeDRigidBodiesQt4/CameraController.h
     ThreeDRigidBodiesQt4/Window.h
-    ThreeDRigidBodiesQt4/Rendering/OpenGL3DSphereRenderer.h
-    ThreeDRigidBodiesQt4/Rendering/PlanarPortalRenderer.h
-    ThreeDRigidBodiesQt4/Rendering/StaticCylinderRenderer.h
     ThreeDRigidBodiesQt4/Rendering/StaticPlaneRenderer.h
-    ThreeDRigidBodiesQt4/Rendering/StapleRenderer.h
-    ThreeDRigidBodiesQt4/Rendering/BodyGeometryRenderer.h
+
+    ${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesQt4/EnergyWindow.cpp
+    ${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesQt4/QCustomPlot/qcustomplot.cpp
+    ${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesQt4/PerspectiveCameraController.cpp
+    ${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesQt4/Rendering/OpenGL3DSphereRenderer.cpp
+    ${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesQt4/Rendering/PlanarPortalRenderer.cpp
+    ${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesQt4/Rendering/StaticCylinderRenderer.cpp
+    ${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesQt4/Rendering/StapleRenderer.cpp
+    ${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesQt4/Rendering/BodyGeometryRenderer.cpp
+    ${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesQt4/OrthographicCameraController.cpp
     
+    ${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesQt4/EnergyWindow.h
+    ${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesQt4/QCustomPlot/qcustomplot.h
+    ${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesQt4/PerspectiveCameraController.h
+    ${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesQt4/Rendering/OpenGL3DSphereRenderer.h
+    ${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesQt4/Rendering/PlanarPortalRenderer.h
+    ${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesQt4/Rendering/StaticCylinderRenderer.h
+    ${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesQt4/Rendering/StapleRenderer.h
+    ${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesQt4/Rendering/BodyGeometryRenderer.h
+    ${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesQt4/OrthographicCameraController.h
+
     ${HWQ_MOC_CPP}
     )
 
@@ -92,10 +96,12 @@ SET(PYSCISIM_LIBRARIES
          
     ThreeDRigidBodiesUtils 
     ThreeDRigidBodies 
-    SDIC
+    SCISim
 )
 
 # ThreeDRigidBodiesQt4 library
+INCLUDE_DIRECTORIES(${SCISim_INCLUDE_DIR}/ThreeDRigidBodiesQt4)
+
 ADD_LIBRARY(ThreeDRigidBodiesQt4 SHARED ${ThreeDRigidBodiesQt4_FILES})
 SET_TARGET_PROPERTIES( ThreeDRigidBodiesQt4 PROPERTIES AUTOMOC TRUE )
 TARGET_LINK_LIBRARIES(ThreeDRigidBodiesQt4 ${PYSCISIM_LIBRARIES})

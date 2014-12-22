@@ -5,13 +5,13 @@
 
 typedef double scalar;
 
-#include "SDIC/UnconstrainedMaps/FlowableSystem.h"
-#include "SDIC/Constraints/ConstrainedSystem.h"
-#include "SDIC/ConstrainedMaps/ImpactMaps/ImpactMap.h"
-#include "ThreeDRigidBodies/ThreeDRigidBodySim.h"
-#include "ThreeDRigidBodies/KinematicScripting.h"
-#include "ThreeDRigidBodies/RigidBodySimState.h"
-#include "ThreeDRigidBodies/Forces/Force.h"
+//#include "SCISim/UnconstrainedMaps/FlowableSystem.h"
+//#include "SCISim/Constraints/ConstrainedSystem.h"
+//#include "SCISim/ConstrainedMaps/ImpactMaps/ImpactMap.h"
+//#include "ThreeDRigidBodies/ThreeDRigidBodySim.h"
+//#include "ThreeDRigidBodies/KinematicScripting.h"
+//#include "ThreeDRigidBodies/RigidBodySimState.h"
+//#include "ThreeDRigidBodies/Forces/Force.h"
 %}
 
 %include "typemaps.i"
@@ -43,10 +43,10 @@ typedef double scalar;
 
 %include "PySCISim.h"
 
-%include "SDIC/UnconstrainedMaps/FlowableSystem.h"
-%include "SDIC/Constraints/ConstrainedSystem.h"
-%include "SDIC/ConstrainedMaps/ImpactMaps/ImpactMap.h"
-%include "ThreeDRigidBodies/ThreeDRigidBodySim.h"
-%include "ThreeDRigidBodies/KinematicScripting.h"
-%include "ThreeDRigidBodies/RigidBodySimState.h"
-%include "ThreeDRigidBodies/Forces/Force.h"
+//%include "SCISim/UnconstrainedMaps/FlowableSystem.h"
+//%include "SCISim/Constraints/ConstrainedSystem.h"
+//%include "SCISim/ConstrainedMaps/ImpactMaps/ImpactMap.h"
+//%include "ThreeDRigidBodies/ThreeDRigidBodySim.h"
+//%include "ThreeDRigidBodies/KinematicScripting.h"
+//%include "ThreeDRigidBodies/RigidBodySimState.h"
+//%include "ThreeDRigidBodies/Forces/Force.h"

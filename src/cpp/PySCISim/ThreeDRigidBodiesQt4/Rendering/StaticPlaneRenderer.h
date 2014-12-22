@@ -1,12 +1,12 @@
 // StaticPlaneRenderer.h
 //
 // Breannan Smith
-// Last updated: 03/16/2014
+// Last updated: 08/30/2014
 
 #ifndef __STATIC_PLANE_RENDERER__
 #define __STATIC_PLANE_RENDERER__
 
-#include "SDIC/Math/MathDefines.h"
+#include "SCISim/Math/MathDefines.h"
 
 class StaticPlane;
 

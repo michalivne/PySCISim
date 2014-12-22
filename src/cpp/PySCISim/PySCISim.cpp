@@ -87,12 +87,13 @@ GLWidget* SCISimApp::get_gl_widget() {
 		window->raise();
 	}
 
+	app->processEvents();
 	return m_gl_widget;
 }
 
-void SCISimApp::openScene(const std::string& xml_scene_file_name) {
+void SCISimApp::openScene(const std::string& xml_scene_file_name, unsigned fps, bool render_at_fps, bool lock_camera) {
 	get_gl_widget();
-	m_gl_widget->openScene(xml_scene_file_name.c_str());
+	m_gl_widget->openScene(xml_scene_file_name.c_str(), fps, render_at_fps, lock_camera);
 	updateSimData();
 }
 
@@ -112,7 +113,7 @@ void SCISimApp::resetSystem() {
 
 void SCISimApp::updateSimData() {
 	m_gl_widget->getSimData(time, T, U, p, L);
-	number_of_collisions = m_gl_widget->get_sim()->computeNumberOfCollisions();
+	m_gl_widget->get_sim()->computeNumberOfCollisions( number_of_collisions, collision_penetration_depth );
 	// FIXME: the next function generates warnings that crash ParallelPython.
 //	m_gl_widget->get_sim()->computeNumberOfCollisions(number_of_collisions,
 //			collision_penetration_depth);

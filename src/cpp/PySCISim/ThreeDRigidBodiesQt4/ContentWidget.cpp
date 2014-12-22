@@ -1,13 +1,13 @@
-// ContentWidget.h
+// ContentWidget.cpp
 //
 // Breannan Smith
-// Last updated: 06/17/2014
+// Last updated: 12/10/2014
 
 #include "ContentWidget.h"
 
 #include "GLWidget.h"
 #include "EnergyWindow.h"
-
+#include <iostream>
 ContentWidget::ContentWidget( QWidget* parent )
 : QWidget( parent )
 , m_idle_timer( NULL )
@@ -62,16 +62,16 @@ ContentWidget::ContentWidget( QWidget* parent )
   controls_layout->addWidget( fps_label, 1, 3 );
   
   // Input for movie output FPS
-  QSpinBox* fps_spin_box = new QSpinBox( this );
-  fps_spin_box->setRange( 1, 1000 );
-  fps_spin_box->setValue( 50 );
-  controls_layout->addWidget( fps_spin_box, 1, 4 );
-  connect( fps_spin_box, SIGNAL( valueChanged(int) ), this, SLOT( movieFPSChanged(int) ) );
-  m_gl_widget->setMovieFPS( fps_spin_box->value() );
+  m_fps_spin_box = new QSpinBox( this );
+  m_fps_spin_box->setRange( 1, 1000 );
+  m_fps_spin_box->setValue( 60 );
+  controls_layout->addWidget( m_fps_spin_box, 1, 4 );
+  connect( m_fps_spin_box, SIGNAL( valueChanged(int) ), this, SLOT( movieFPSChanged(int) ) );
+  m_gl_widget->setMovieFPS( m_fps_spin_box->value() );
   
-  mainLayout->addLayout(controls_layout);
+  mainLayout->addLayout( controls_layout );
 
-  setLayout(mainLayout);
+  setLayout( mainLayout );
 
   // Create a timer that triggers simulation steps when Qt4 is idle
   m_idle_timer = new QTimer( this );
@@ -116,38 +116,104 @@ void ContentWidget::resetSystem()
 
 void ContentWidget::openScene()
 {
+  // Obtain a file name from the user
   const QString xml_scene_file_name = getOpenFileNameFromUser( tr("Please Select a Scene File") );
-  if( xml_scene_file_name.size() != 0 )
+
+  // Determine whether the requested file exists
+  const bool file_exists = QFile::exists( xml_scene_file_name );
+
+  // If the user provided a valid file
+  if( file_exists )
   {
-    m_gl_widget->openScene( xml_scene_file_name );
+    // Attempt to load the file
+    assert( m_gl_widget != nullptr );
+    unsigned fps;
+    bool render_at_fps;
+    bool lock_camera;
+    const bool successfully_loaded = m_gl_widget->openScene( xml_scene_file_name, fps, render_at_fps, lock_camera );
 
-    // Update the energy plot
-    m_energy_plot->reset();
-    pushDataPointToGraph();
+    // If the load was successful
+    if( successfully_loaded )
+    {
+      // Update the energy plot
+      assert( m_energy_plot != nullptr );
+      m_energy_plot->reset();
+      pushDataPointToGraph();
 
-    // Make sure the simulation isn't running when we start
-    if( m_simulate_checkbox->isChecked() ) toggleSimulationCheckbox();
+      // Make sure the simulation isn't running when we start
+      assert( m_simulate_checkbox != nullptr );
+      if( m_simulate_checkbox->isChecked() )
+      {
+        toggleSimulationCheckbox();
+      }
 
-    m_xml_file_name = xml_scene_file_name;
+      // Update UI elements
+      assert( m_fps_spin_box != nullptr );
+      m_fps_spin_box->setValue( fps );
+      assert( m_render_at_fps_checkbox != nullptr );
+      m_render_at_fps_checkbox->setCheckState( render_at_fps ? Qt::Checked : Qt::Unchecked );
+      assert( m_lock_camera_button != nullptr );
+      m_lock_camera_button->setCheckState( lock_camera ? Qt::Checked : Qt::Unchecked );
+
+      m_xml_file_name = xml_scene_file_name;
+
+      disableMovieExport();
+    }
   }
+  else
+  {
+    std::cerr << "Error, requested file " << xml_scene_file_name.toStdString() << " does not exist." << std::endl;
+  }
+
   this->setFocus();
 }
 
 void ContentWidget::reloadScene()
 {
-  if( m_xml_file_name.size() != 0 )
+  // Determine whether the requested file still exists
+  const bool file_exists = QFile::exists( m_xml_file_name );
+
+  // If the user provided a valid file
+  if( file_exists )
   {
-    // TODO: Check that the file still exists
+    // Attempt to load the file
+    assert( m_gl_widget != nullptr );
+    unsigned fps;
+    bool render_at_fps;
+    bool lock_camera;
+    const bool successfully_loaded = m_gl_widget->openScene( m_xml_file_name, fps, render_at_fps, lock_camera );
 
-    m_gl_widget->openScene( m_xml_file_name );
+    // If the load was successful
+    if( successfully_loaded )
+    {
+      // Update the energy plot
+      assert( m_energy_plot != nullptr );
+      m_energy_plot->reset();
+      pushDataPointToGraph();
 
-    // Update the energy plot
-    m_energy_plot->reset();
-    pushDataPointToGraph();
+      // Make sure the simulation isn't running when we start
+      assert( m_simulate_checkbox != nullptr );
+      if( m_simulate_checkbox->isChecked() )
+      {
+        toggleSimulationCheckbox();
+      }
 
-    // Make sure the simulation isn't running when we start
-    if( m_simulate_checkbox->isChecked() ) toggleSimulationCheckbox();
+      // Update UI elements
+      assert( m_fps_spin_box != nullptr );
+      m_fps_spin_box->setValue( fps );
+      assert( m_render_at_fps_checkbox != nullptr );
+      m_render_at_fps_checkbox->setCheckState( render_at_fps ? Qt::Checked : Qt::Unchecked );
+      assert( m_lock_camera_button != nullptr );
+      m_lock_camera_button->setCheckState( lock_camera ? Qt::Checked : Qt::Unchecked );
+
+      disableMovieExport();
+    }
   }
+  else
+  {
+    std::cerr << "Error, file " << m_xml_file_name.toStdString() << " no longer exists." << std::endl;
+  }
+  
   this->setFocus();
 }
 
@@ -276,6 +342,26 @@ void ContentWidget::exportCameraSettings()
   m_gl_widget->exportCameraSettings();
 }
 
+void ContentWidget::enablePerspectiveCamera()
+{
+  m_gl_widget->enablePerspectiveCamera();
+}
+
+void ContentWidget::enableOrthographicXYCamera()
+{
+  m_gl_widget->enableOrthographicXYCamera();
+}
+
+void ContentWidget::enableOrthographicZYCamera()
+{
+  m_gl_widget->enableOrthographicZYCamera();
+}
+
+void ContentWidget::enableOrthographicZXCamera()
+{
+  m_gl_widget->enableOrthographicZXCamera();
+}
+
 void ContentWidget::closeEvent( QCloseEvent* event )
 {
   m_energy_plot->close();
@@ -317,5 +403,5 @@ QString ContentWidget::getDirectoryNameFromUser( const QString& prompt )
 }
 
 GLWidget* ContentWidget::get_gl_widget() {
-	return m_gl_widget;
+  return m_gl_widget;
 }

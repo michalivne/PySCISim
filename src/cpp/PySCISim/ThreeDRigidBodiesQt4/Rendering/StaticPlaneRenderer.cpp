@@ -8,11 +8,17 @@
 #include <QtOpenGL>
 
 #include "ThreeDRigidBodies/StaticGeometry/StaticPlane.h"
+#include <iostream>
 
+// FIXME: memory has to be allocated manually when creating a new Eigen::Matrix
 StaticPlaneRenderer::StaticPlaneRenderer( const unsigned idx, const Array2s& half_width )
 : m_idx( idx )
-, m_half_width( half_width )
+//, m_half_width( half_width )
 {
+	m_half_width = Array2s::Zero(half_width.rows(), half_width.cols());
+	for (int i = 0; i < half_width.rows()*half_width.cols(); i++)
+		m_half_width.data()[i] = half_width.data()[i];
+	std::cout<<half_width<<std::endl;
   assert( ( m_half_width > 0.0 ).all() );
 }
 

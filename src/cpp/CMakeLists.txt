@@ -23,7 +23,8 @@ IF(APPLE)
 
     ADD_DEFINITIONS(
     # C++ flags
-#        -std=c++11 
+        -std=c++11
+#        -stdlib=libc++
 #        -stdlib=libstdc++
 #        -fno-strict-aliasing
     )
@@ -67,7 +68,7 @@ SET(SCISim_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/../../../SCISim)
 # include SCISim
 INCLUDE_DIRECTORIES(${SCISim_INCLUDE_DIR})
 INCLUDE_DIRECTORIES(${SCISim_INCLUDE_DIR}/include/rapidxml)
-LINK_DIRECTORIES(${CMAKE_SOURCE_DIR}/../../../SCISim/build/SDIC)
+LINK_DIRECTORIES(${CMAKE_SOURCE_DIR}/../../../SCISim/build/SCISim)
 LINK_DIRECTORIES(${CMAKE_SOURCE_DIR}/../../../SCISim/build/ThreeDRigidBodies)
 LINK_DIRECTORIES(${CMAKE_SOURCE_DIR}/../../../SCISim/build/ThreeDRigidBodiesUtils)
 

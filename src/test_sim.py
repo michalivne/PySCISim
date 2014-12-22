@@ -11,6 +11,7 @@ from matplotlib import pyplot as plt
 # Control variables
 #===============================================================================
 SCENE_NAME = "GravityTest"
+SCENE_NAME = "SphereStaticPlaneTest"
 
 #===============================================================================
 # Main script
