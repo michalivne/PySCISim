@@ -16,25 +16,28 @@ SCISimApp::SCISimApp(bool process_Qt_events) :
 		process_Qt_events(process_Qt_events) {
 	collision_penetration_depth = 0.0;
 
-	//QApplication::setGraphicsSystem("opengl");
-	app = new QApplication(Qt_argc, Qt_argv);
-	window = new Window;
+	app = NULL;
+	window = NULL;
 
 	get_gl_widget();
 	updateSimData();
 }
 
 SCISimApp::~SCISimApp() {
-	if (app) {
-		app->quit();
-	}
-
 	resetQt();
-
-	delete app;
 }
 
 void SCISimApp::resetQt() {
+	if (app) {
+		app->quit();
+		delete app;
+	}
+//	if (window)
+//		delete window;
+
+	//QApplication::setGraphicsSystem("opengl");
+	app = new QApplication(Qt_argc, Qt_argv);
+	window = new Window;
 }
 
 void SCISimApp::centerWindow() {

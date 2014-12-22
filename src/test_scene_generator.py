@@ -26,14 +26,16 @@ scene.add_sphere(name="ball", r=0.2)
 scene.add_static_plane(x="0.0 0.0 0.0", n="1.0 1.0 0.0", r="10.0 5.0")
 x = np.array([0.0, 2.0, 0.0]) 
 v = [0.0, 1.0, 0.0]
-scene.add_rigid_body_with_density(geometry_name="ball", 
-#                                     x="0.0 2.0 0.0",
-                                    x=x,
-#                                     v="0.0 0.0 0.0",
-                                    v=v,
-                                    omega="0.0 0.0 0.0",
-                                    rho="1.74040", 
-                                    fixed="0")
+
+for i in range(-1, 2):
+    scene.add_rigid_body_with_density(geometry_name="ball",
+    #                                     x="0.0 2.0 0.0",
+                                        x=x+np.array([i, 0, 0]),
+    #                                     v="0.0 0.0 0.0",
+                                        v=v+np.array([-float(i)*2, 0, 0]),
+                                        omega="0.0 0.0 0.0",
+                                        rho="1.74040",
+                                        fixed="0")
 
 with Timer() as dt:
     scene.save(XML_FILE_NAME)
@@ -41,5 +43,5 @@ with Timer() as dt:
 print "Saved a scene in %.2e [Sec]" % dt.elapsed
 
 app = PySCISim.SCISimApp()
-app.openScene("scene.xml")
-# app.run("scene.xml")
+# app.openScene("scene.xml")
+app.run("scene.xml")
