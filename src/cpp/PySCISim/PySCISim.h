@@ -54,6 +54,9 @@ public:
 	VectorXs getSimState_p();
 	VectorXs getSimState_L();
 
+	// update sim state
+	void setSimState_q(const VectorXs& q);
+	void setSimState_v(const VectorXs& v);
 
 	ThreeDRigidBodySim* getSim_sim();
 	RigidBodySimState* getSim_sim_state_backup();

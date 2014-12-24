@@ -248,3 +248,22 @@ VectorXs SCISimApp::getSimState_L() {
 	return L;
 }
 
+void SCISimApp::setSimState_q(const VectorXs& q) {
+	const RigidBodySimState& m_sim_state = getSim_sim()->getState();
+	VectorXs& cur_q = const_cast< VectorXs& >(m_sim_state.q());
+
+	if ((q.cols() != cur_q.cols()) || (q.rows() != cur_q.rows()))
+		throw "Wrong dimensions of q";
+
+	cur_q = q;
+}
+
+void SCISimApp::setSimState_v(const VectorXs& v) {
+	const RigidBodySimState& m_sim_state = getSim_sim()->getState();
+	VectorXs& cur_v = const_cast< VectorXs& >(m_sim_state.v());
+
+	if ((v.cols() != cur_v.cols()) || (v.rows() != cur_v.rows()))
+		throw "Wrong dimensions of v";
+
+	cur_v = v;
+}
