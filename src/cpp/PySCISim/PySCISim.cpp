@@ -248,6 +248,11 @@ VectorXs SCISimApp::getSimState_L() {
 	return L;
 }
 
+int SCISimApp::getSimState_nbodies() {
+	const RigidBodySimState& m_sim_state = getSim_sim()->getState();
+	return m_sim_state.nbodies();
+}
+
 void SCISimApp::setSimState_q(const VectorXs& q) {
 	const RigidBodySimState& m_sim_state = getSim_sim()->getState();
 	VectorXs& cur_q = const_cast< VectorXs& >(m_sim_state.q());

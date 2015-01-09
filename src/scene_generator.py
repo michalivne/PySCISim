@@ -130,4 +130,5 @@ class SceneGenerator(object):
         """
         if verbose:
             print "Writing SCISim XML file: %s" % (fname)
+
         self.tree.write(fname, pretty_print=True)

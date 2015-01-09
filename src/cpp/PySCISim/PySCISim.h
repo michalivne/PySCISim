@@ -53,6 +53,7 @@ public:
 	VectorXs getSimState_U();
 	VectorXs getSimState_p();
 	VectorXs getSimState_L();
+	int getSimState_nbodies();
 
 	// update sim state
 	void setSimState_q(const VectorXs& q);
