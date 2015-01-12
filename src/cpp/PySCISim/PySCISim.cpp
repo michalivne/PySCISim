@@ -498,7 +498,7 @@ void SCISimApp::resolve_contact() {
     
     // as long as there is contact, push bodies away
     do {
-        cout<<"HERE"<<endl;
+//        cout<<"HERE"<<endl;
         get_contacts_normal_and_body_ind(normal_and_body_ind_vec);
         if (normal_and_body_ind_vec.size())
             is_contact = true;
