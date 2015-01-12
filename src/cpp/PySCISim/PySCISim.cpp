@@ -4,6 +4,10 @@
 
 #include "PySCISim.h"
 
+#include <unsupported/Eigen/MatrixFunctions>
+#include <Eigen/Geometry>
+#include <cmath>
+
 using namespace std;
 
 ////////////////////////////////////////////
@@ -272,3 +276,159 @@ void SCISimApp::setSimState_v(const VectorXs& v) {
 
 	cur_v = v;
 }
+
+VectorXs SCISimApp::get_x_from_q(const VectorXs& q) {
+	int N = this->getSimState_nbodies();
+	VectorXs x = VectorXs::Zero(N*6);
+
+	// copy translation as is
+	x.block(0, 0, 3*N, 1) = q.block(0, 0, 3*N, 1);
+	// convert rotation matrix into axis/angle
+	for (int n = 0; n < N; n++) {
+		const Matrix33sr R = Eigen::Map<const Matrix33sr>( q.segment<9>( 3 * N + 9 * n ).data() );
+		Matrix33sr log_R = R.log();
+		x(3 * N + 3 * n + 0, 0) = log_R(2, 1);
+		x(3 * N + 3 * n + 1, 0) = log_R(0, 2);
+		x(3 * N + 3 * n + 2, 0) = log_R(1, 0);
+	}
+
+	return x;
+}
+
+// converts
+VectorXs SCISimApp::get_q_from_x(const VectorXs& x) {
+	int N = this->getSimState_nbodies();
+	VectorXs q = VectorXs::Zero(N*12);
+
+	// copy translation as is
+	q.block(0, 0, 3*N, 1) = x.block(0, 0, 3*N, 1);
+	// convert rotation matrix into axis/angle
+	for (int n = 0; n < N; n++) {
+		Matrix33sr log_R = Matrix33sr::Zero();
+
+		log_R(0, 1) = -x(3 * N + 3 * n + 2, 0);
+		log_R(0, 2) = x(3 * N + 3 * n + 1, 0);
+		log_R(1, 0) = x(3 * N + 3 * n + 2, 0);
+		log_R(1, 2) = -x(3 * N + 3 * n + 0, 0);
+		log_R(2, 0) = -x(3 * N + 3 * n + 1, 0);
+		log_R(2, 1) = x(3 * N + 3 * n + 0, 0);
+
+		Matrix33sr R = log_R.exp();
+        q.segment<9>( 3 * N + 9 * n ) = Eigen::Map< VectorXs >(R.data(), R.size());
+	}
+
+	return q;
+}
+
+VectorXs SCISimApp::interpolate_x(const VectorXs& x0, const VectorXs& x1, scalar t) {
+	if (t <= 0.0)
+		return x0;
+	if (t >= 1.0)
+		return x1;
+
+	int N = this->getSimState_nbodies();
+	VectorXs x = VectorXs::Zero(N*6);
+
+	// interpolate translation
+	x.block(0, 0, 3*N, 1) = (1.0-t)*x0.block(0, 0, 3*N, 1) + (t)*x1.block(0, 0, 3*N, 1);
+	// interpolate rotation with quaternions slerp
+	for (int n = 0; n < N; n++) {
+		double theta0 = x0.segment<3>(3 * N + 3 * n).norm();
+		Vector3s v0;
+		if (theta0 > 0.0)
+			v0 = x0.segment<3>(3 * N + 3 * n) / theta0;
+		else
+			v0 << 1.0, 0.0, 0.0;
+
+        Eigen::AngleAxisd aa0(theta0, v0);
+        Eigen::Quaterniond quat0(aa0);
+
+        double theta1 = x1.segment<3>(3 * N + 3 * n).norm();
+        Vector3s v1;
+        if (theta1 > 0.0)
+            v1 = x1.segment<3>(3 * N + 3 * n) / theta1;
+        else
+            v1 << 1.0, 0.0, 0.0;
+        
+        Eigen::AngleAxisd aa1(theta1, v1);
+        Eigen::Quaterniond quat1(aa1);
+
+        // Use Quaternion SLERP for rotation interpolation
+        Eigen::Quaterniond quat = quat0.slerp(t, quat1);
+        
+        // convert back to axis-angle representation
+        Eigen::AngleAxisd aa(quat);
+        x.segment<3>(3 * N + 3 * n) = aa.angle() * aa.axis();
+    }
+    
+    return x;
+}
+
+VectorXs SCISimApp::get_dxdt_from_x(const VectorXs& x0, const VectorXs& x1, double h) {
+    if (h <= 0.0)
+        throw "h must be bigger then 0";
+    
+    int N = this->getSimState_nbodies();
+    VectorXs v = VectorXs::Zero(N*6);
+    
+    // interpolate translation
+    v.block(0, 0, 3*N, 1) = (x1.block(0, 0, 3*N, 1) - x0.block(0, 0, 3*N, 1)) / h;
+    // interpolate rotation
+    for (int n = 0; n < N; n++) {
+        double theta0 = x0.segment<3>(3 * N + 3 * n).norm();
+        Vector3s v0;
+        if (theta0 > 0.0)
+            v0 = x0.segment<3>(3 * N + 3 * n) / theta0;
+        else
+            v0 << 1.0, 0.0, 0.0;
+        
+        Eigen::AngleAxisd aa0(theta0, v0);
+        Eigen::Matrix3d R0;
+        R0 = aa0;
+        
+        double theta1 = x1.segment<3>(3 * N + 3 * n).norm();
+        Vector3s v1;
+        if (theta1 > 0.0)
+            v1 = x1.segment<3>(3 * N + 3 * n) / theta1;
+        else
+            v1 << 1.0, 0.0, 0.0;
+        
+        Eigen::AngleAxisd aa1(theta1, v1);
+        Eigen::Matrix3d R1;
+        R1 = aa1;
+        
+        Eigen::Matrix3d R = R1*(R0.inverse());
+        Eigen::Matrix3d log_R = R.log();
+        
+        // Store angular velocity
+        v(3 * N + 3 * n + 0) = log_R(2, 1) / h;
+        v(3 * N + 3 * n + 1) = log_R(0, 2) / h;
+        v(3 * N + 3 * n + 2) = log_R(1, 0) / h;
+    }
+    
+    return v;
+}
+
+VectorXs SCISimApp::get_x() {
+	// read current configuration state (translation and rotation matrix)
+	return get_x_from_q(getSim_sim()->getState().q());
+}
+
+
+VectorXs SCISimApp::get_dxdt() {
+	return getSimState_v();
+}
+
+void SCISimApp::set_x(const VectorXs& x) {
+
+}
+
+void SCISimApp::set_dxdt(const VectorXs& dxdt) {
+	setSimState_v(dxdt);
+}
+
+void SCISimApp::set_dxdt(const VectorXs& x0, const VectorXs& x1, double h) {
+    VectorXs dxdt = get_dxdt_from_x(x0, x1, h);
+    setSimState_v(dxdt);
+}
+

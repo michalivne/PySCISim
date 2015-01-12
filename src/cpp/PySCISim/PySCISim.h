@@ -59,6 +59,20 @@ public:
 	void setSimState_q(const VectorXs& q);
 	void setSimState_v(const VectorXs& v);
 
+	// getter/setter of simulation state with rotation represented as angle/axis
+	VectorXs get_x_from_q(const VectorXs& q); // converts q to x
+    VectorXs get_q_from_x(const VectorXs& x); // converts x to q
+	VectorXs interpolate_x(const VectorXs& x0, const VectorXs& x1, scalar t); // interpolate x
+    VectorXs get_dxdt_from_x(const VectorXs& x0, const VectorXs& x1, double h);
+
+	VectorXs get_x();
+	VectorXs get_dxdt();
+
+	void set_x(const VectorXs& x);
+	void set_dxdt(const VectorXs& dxdt);
+    // set dx/dt from two x vectors and time step h
+    void set_dxdt(const VectorXs& x0, const VectorXs& x1, double h);
+
 	ThreeDRigidBodySim* getSim_sim();
 	RigidBodySimState* getSim_sim_state_backup();
 
