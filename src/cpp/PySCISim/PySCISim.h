@@ -16,10 +16,15 @@
 
 #include <cstring>
 #include <boost/shared_ptr.hpp>
+#include <vector>
+#include <utility>
 
 ////////////////////////////////////////////
 // SCISimWindow
 ////////////////////////////////////////////
+
+typedef std::pair <VectorXs, int> ContactNormalElement;
+typedef std::vector< ContactNormalElement > ContactNormalVec;
 
 class SCISimApp {
 public:
@@ -66,13 +71,18 @@ public:
     VectorXs get_dxdt_from_x(const VectorXs& x0, const VectorXs& x1, double h);
 
 	VectorXs get_x();
-	VectorXs get_dxdt();
+	VectorXs get_v();
 
 	void set_x(const VectorXs& x);
-	void set_dxdt(const VectorXs& dxdt);
+	void set_v(const VectorXs& dxdt);
     // set dx/dt from two x vectors and time step h
     void set_dxdt(const VectorXs& x0, const VectorXs& x1, double h);
 
+    // get a list of contact points and the corresponding normal
+    void get_contacts_normal_and_body_ind( ContactNormalVec& normal_and_body_ind_vec );
+    // iterates over all active contacts, and pushes bodies until there is no contact
+    void resolve_contact();
+    
 	ThreeDRigidBodySim* getSim_sim();
 	RigidBodySimState* getSim_sim_state_backup();
 

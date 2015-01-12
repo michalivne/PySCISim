@@ -4,6 +4,21 @@
 
 #include "PySCISim.h"
 
+#include "SCISim/Utilities.h"
+#include "ThreeDRigidBodies/Constraints/BoxBoxUtilities.h"
+#include "ThreeDRigidBodies/Constraints/StapleStapleUtilities.h"
+#include "ThreeDRigidBodies/Constraints/MeshMeshUtilities.h"
+#include "ThreeDRigidBodies/Constraints/SphereSphereConstraint.h"
+#include "ThreeDRigidBodies/Constraints/TeleportedSphereSphereConstraint.h"
+#include "ThreeDRigidBodies/Constraints/SphereBodyConstraint.h"
+#include "ThreeDRigidBodies/Constraints/BodyBodyConstraint.h"
+#include "ThreeDRigidBodies/Constraints/StaticPlaneBodyConstraint.h"
+#include "ThreeDRigidBodies/Constraints/StaticPlaneBoxConstraint.h"
+#include "ThreeDRigidBodies/Constraints/StaticPlaneSphereConstraint.h"
+#include "ThreeDRigidBodies/Constraints/StaticCylinderSphereConstraint.h"
+#include "ThreeDRigidBodies/Constraints/KinematicObjectSphereConstraint.h"
+#include "ThreeDRigidBodies/Constraints/CollisionUtilities.h"
+
 #include <unsupported/Eigen/MatrixFunctions>
 #include <Eigen/Geometry>
 #include <cmath>
@@ -415,7 +430,7 @@ VectorXs SCISimApp::get_x() {
 }
 
 
-VectorXs SCISimApp::get_dxdt() {
+VectorXs SCISimApp::get_v() {
 	return getSimState_v();
 }
 
@@ -423,7 +438,7 @@ void SCISimApp::set_x(const VectorXs& x) {
 
 }
 
-void SCISimApp::set_dxdt(const VectorXs& dxdt) {
+void SCISimApp::set_v(const VectorXs& dxdt) {
 	setSimState_v(dxdt);
 }
 
@@ -432,3 +447,69 @@ void SCISimApp::set_dxdt(const VectorXs& x0, const VectorXs& x1, double h) {
     setSimState_v(dxdt);
 }
 
+void SCISimApp::get_contacts_normal_and_body_ind( ContactNormalVec& normal_and_body_ind_vec )
+{
+    const RigidBodySimState& m_sim_state = getSim_sim()->getState();
+    VectorXs contact_normal;
+    VectorXs q;
+
+    normal_and_body_ind_vec.clear();
+    
+    std::vector<std::unique_ptr<Constraint>> active_set;
+    m_gl_widget->get_sim()->computeActiveSet( m_sim_state.q(), m_sim_state.q(), active_set );
+    //for( std::vector<std::unique_ptr<Constraint>>::size_type i = 0; i < active_set.size(); ++i )
+    for( const std::unique_ptr<Constraint>& constraint : active_set )
+    {
+        if( constraint->getName() == "sphere_sphere" )
+        {
+            SphereSphereConstraint& sphere_sphere = sd_cast< SphereSphereConstraint&>( *constraint );
+            sphere_sphere.getWorldSpaceContactNormal( q, contact_normal );
+            normal_and_body_ind_vec.push_back(ContactNormalElement(
+                            contact_normal, sphere_sphere.idx1()));
+        }
+        else if( constraint->getName() == "teleported_sphere_sphere" )
+        {
+            // TODO: Clean this up!
+            TeleportedSphereSphereConstraint& teleported_sphere_sphere = sd_cast< TeleportedSphereSphereConstraint&>( *constraint );
+            teleported_sphere_sphere.getWorldSpaceContactNormal( q, contact_normal );
+            normal_and_body_ind_vec.push_back(ContactNormalElement(
+                   contact_normal, teleported_sphere_sphere.idx1()));
+        }
+        else if( constraint->getName() == "static_plane_sphere" )
+        {
+            StaticPlaneSphereConstraint& plane_sphere = sd_cast< StaticPlaneSphereConstraint&>( *constraint );
+            plane_sphere.getWorldSpaceContactNormal( q, contact_normal );
+            normal_and_body_ind_vec.push_back(ContactNormalElement(
+                   contact_normal, plane_sphere.sphereIdx()));
+        }
+        else
+        {
+            std::cerr << "Warning, penetration depth computation not implemented for: " << constraint->getName() << std::endl;
+        }
+    }
+}
+
+void SCISimApp::resolve_contact() {
+    ContactNormalVec normal_and_body_ind_vec;
+    bool is_contact;
+
+    const RigidBodySimState& m_sim_state = getSim_sim()->getState();
+    VectorXs& q = const_cast< VectorXs& >(m_sim_state.q());
+    
+    // as long as there is contact, push bodies away
+    do {
+        cout<<"HERE"<<endl;
+        get_contacts_normal_and_body_ind(normal_and_body_ind_vec);
+        if (normal_and_body_ind_vec.size())
+            is_contact = true;
+        else
+            is_contact = false;
+        
+        // loop over all contacts and push objects in direction of normal
+        for( ContactNormalElement normal_and_body_ind : normal_and_body_ind_vec ) {
+            // update translation by 1 centimeter
+            q.segment<3>(3 * normal_and_body_ind.second) += normal_and_body_ind.first*0.01;
+//            cout<<"Ind: "<<normal_and_body_ind.second<<"    n: "<<normal_and_body_ind.first(0)<<", "<<normal_and_body_ind.first(1)<<", "<<normal_and_body_ind.first(2)<<endl;
+        }
+    } while (is_contact);
+}
