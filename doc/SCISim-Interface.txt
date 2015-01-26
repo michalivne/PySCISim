@@ -1,0 +1,9 @@
+This file holds recommendations for make SCISim more user-friendly
+as a blackbox simulator to be used with external projects.
+
+- Separate GUI from simulator.
+- Easier scene loading.
+- Easeir save/load of simulation state (serialization).
+- Unified interface (sim + sim state) to get all required attributes.
+- Allow to read/write angle-axis/quaternions rather then rotation matrix.
+
