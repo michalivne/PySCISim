@@ -313,6 +313,10 @@ VectorXs SCISimApp::get_x_from_q(const VectorXs& q) {
 // converts
 VectorXs SCISimApp::get_q_from_x(const VectorXs& x) {
 	int N = this->getSimState_nbodies();
+	// check for correct input size
+	if (x.rows() != N*6)
+		throw "Wrong dimensions of x";
+
 	VectorXs q = VectorXs::Zero(N*12);
 
 	// copy translation as is
@@ -426,7 +430,7 @@ VectorXs SCISimApp::get_dxdt_from_x(const VectorXs& x0, const VectorXs& x1, doub
 
 VectorXs SCISimApp::get_x() {
 	// read current configuration state (translation and rotation matrix)
-	return get_x_from_q(getSim_sim()->getState().q());
+	return get_x_from_q(getSimState_q());
 }
 
 
@@ -435,7 +439,7 @@ VectorXs SCISimApp::get_v() {
 }
 
 void SCISimApp::set_x(const VectorXs& x) {
-
+	setSimState_q(get_q_from_x(x));
 }
 
 void SCISimApp::set_v(const VectorXs& dxdt) {
