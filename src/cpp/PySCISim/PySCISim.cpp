@@ -383,15 +383,16 @@ VectorXs SCISimApp::interpolate_x(const VectorXs& x0, const VectorXs& x1, scalar
     return x;
 }
 
-VectorXs SCISimApp::get_dxdt_from_x(const VectorXs& x0, const VectorXs& x1, double h) {
-    // default is reading number of bodies from current simulation.
-    return this->get_dxdt_from_x(x0, x1, h, this->getSimState_nbodies());
-}
-
-VectorXs SCISimApp::get_dxdt_from_x(const VectorXs& x0, const VectorXs& x1, double h,
-                                    int nbodies) {
+VectorXs SCISimApp::get_dxdt_from_x(const VectorXs& x0, const VectorXs& x1,
+                                    double h) {
   
-    int N = nbodies;
+    if (x0.rows() != x1.rows())
+        throw "x0 and x1 must be the same size.";
+    
+    if (x0.rows() % 6)
+        throw "x0 and x1 must have size of 6*N for N objects.";
+        
+    int N = x0.rows() / 6;
     
     if (h <= 0.0)
         throw "h must be bigger then 0";

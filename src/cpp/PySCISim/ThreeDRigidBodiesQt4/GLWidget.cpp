@@ -854,7 +854,8 @@ void GLWidget::setMovieFPS( const unsigned fps )
   m_output_frame = 0;
   if( 1.0 < scalar( m_dt * std::intmax_t( m_output_fps ) ) )
   {
-    std::cerr << "Warning, requested movie frame rate faster than timestep. Dumping at timestep rate." << std::endl;
+    if (m_use_opengl)
+        std::cerr << "Warning, requested movie frame rate faster than timestep. Dumping at timestep rate." << std::endl;
     m_steps_per_frame = 1;
   }
   else
