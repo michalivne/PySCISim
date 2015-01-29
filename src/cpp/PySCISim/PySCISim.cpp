@@ -383,11 +383,16 @@ VectorXs SCISimApp::interpolate_x(const VectorXs& x0, const VectorXs& x1, scalar
     return x;
 }
 
-VectorXs SCISimApp::get_dxdt_from_x(const VectorXs& x0, const VectorXs& x1, double h) {
+VectorXs SCISimApp::get_dxdt_from_x(const VectorXs& x0, const VectorXs& x1, double h,
+                                    int nbodies) {
     if (h <= 0.0)
         throw "h must be bigger then 0";
+  
+    int N;
+    // default is reading number of bodies from current simulation.
+    if (nbodies < 0)
+        N = this->getSimState_nbodies();
     
-    int N = this->getSimState_nbodies();
     VectorXs v = VectorXs::Zero(N*6);
     
     // interpolate translation

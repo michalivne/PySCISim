@@ -68,7 +68,8 @@ public:
 	VectorXs get_x_from_q(const VectorXs& q); // converts q to x
     VectorXs get_q_from_x(const VectorXs& x); // converts x to q
 	VectorXs interpolate_x(const VectorXs& x0, const VectorXs& x1, scalar t); // interpolate x
-    VectorXs get_dxdt_from_x(const VectorXs& x0, const VectorXs& x1, double h);
+    VectorXs get_dxdt_from_x(const VectorXs& x0, const VectorXs& x1, double h,
+                             int nbodies=-1);
 
 	VectorXs get_x();
 	VectorXs get_v();
