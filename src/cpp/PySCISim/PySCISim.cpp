@@ -437,6 +437,61 @@ VectorXs SCISimApp::get_dxdt_from_x(const VectorXs& x0, const VectorXs& x1,
     return v;
 }
 
+VectorXs SCISimApp::get_x1_from_x0_dxdt(const VectorXs& x0,
+                                        const VectorXs& v, double h) {
+    if (x0.rows() != v.rows())
+        throw "x0 and v must be the same size.";
+    
+    if (x0.rows() % 6)
+        throw "x0 and v must have size of 6*N for N objects.";
+    
+    int N = x0.rows() / 6;
+    
+    if (h <= 0.0)
+        throw "h must be bigger then 0";
+    
+    VectorXs x1 = VectorXs::Zero(N*6);
+    
+    // calculate translation
+    x1.block(0, 0, 3*N, 1) = x0.block(0, 0, 3*N, 1) + v.block(0, 0, 3*N, 1) * h;
+    // calculate rotation
+    for (int n = 0; n < N; n++) {
+        double theta0 = x0.segment<3>(3 * N + 3 * n).norm();
+        Vector3s v0;
+        if (theta0 > 0.0)
+            v0 = x0.segment<3>(3 * N + 3 * n) / theta0;
+        else
+            v0 << 1.0, 0.0, 0.0;
+        
+        Eigen::AngleAxisd aa0(theta0, v0);
+        Eigen::Matrix3d R0;
+        R0 = aa0;
+        
+        Eigen::Matrix3d log_R = Eigen::Matrix3d::Zero();
+
+        // Load angular velocity
+        log_R(2, 1) = v(3 * N + 3 * n + 0);
+        log_R(1, 2) = -v(3 * N + 3 * n + 0);
+        log_R(0, 2) = v(3 * N + 3 * n + 1);
+        log_R(2, 0) = -v(3 * N + 3 * n + 1);
+        log_R(1, 0) = v(3 * N + 3 * n + 2);
+        log_R(0, 1) = -v(3 * N + 3 * n + 2);
+        
+        // apply angular velocity rotation to x0
+        Eigen::Matrix3d R = (log_R * h).exp();
+        Eigen::Matrix3d R1 = R*R0;
+        
+        // convert x1 rotation to angle-axis
+        Eigen::AngleAxisd aa1;
+        aa1 = R1;
+        
+        // store x1
+        x1.segment<3>(3 * N + 3 * n) = aa1.axis() * aa1.angle();
+    }
+    
+    return v;
+}
+
 VectorXs SCISimApp::get_x() {
 	// read current configuration state (translation and rotation matrix)
 	return get_x_from_q(getSimState_q());
