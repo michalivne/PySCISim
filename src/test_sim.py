@@ -13,12 +13,15 @@ from matplotlib import pyplot as plt
 SCENE_NAME = "GravityTest"
 # SCENE_NAME = "SphereStaticPlaneTest"
 
+SCENE_FILE_NAME = os.path.join(SCISIM_3D_ASSSETS_PATH, "Balls",  SCENE_NAME+".xml")
 #===============================================================================
 # Main script
 #===============================================================================
 app = PySCISim.SCISimApp(False)
-app.openScene(os.path.join(SCISIM_3D_ASSSETS_PATH, "Balls", 
-                           SCENE_NAME+".xml"))
+app.openScene(SCENE_FILE_NAME)
+
+sim = PySCISim.SCISim()
+sim.openScene(SCENE_FILE_NAME)
 
 # app.run()
 
@@ -34,6 +37,8 @@ all_v = []
 
 for i in range(100):
     app.stepSystem()
+    sim.stepSystem()
+
     all_time.append(app.getSim_time())
     all_T.append(app.getSim_T())
     all_U.append(app.getSim_U())
@@ -41,6 +46,15 @@ for i in range(100):
     all_L.append(app.getSim_L().flatten())
     all_q.append(app.getSimState_q().flatten())
     all_v.append(app.getSimState_v().flatten())
+
+    # test sim and app
+    for method_name in ["getSim_time", "getSim_T", "getSim_U", "getSim_p",
+                        "getSim_L", "getSimState_q", "getSimState_v"]:
+        sim_v = getattr(sim, method_name)()
+        app_v = getattr(app, method_name)()
+        if not np.all(sim_v == app_v):
+            raise ValueError("sim and app are not equal for method '%s'. sim: %s     app: %s" %\
+                             (method_name, str(sim_v), str(app_v)))
     
 # make all arrays numpy
 all_time = np.array(all_time) 

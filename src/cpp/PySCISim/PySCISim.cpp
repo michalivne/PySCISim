@@ -199,6 +199,10 @@ void SCISim::resetSystem() {
     //m_sim.resetCachedData();
     m_sim.clearConstraintCache();
     if( m_impact_friction_map != nullptr ) m_impact_friction_map->resetCachedData();
+    
+    m_iteration = 0;
+
+    updateSimData();
 }
 
 void SCISim::updateSimData() {
