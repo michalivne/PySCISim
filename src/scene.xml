@@ -3,7 +3,7 @@
   <impact_operator CoR="0.5" type="lcp">
     <solver con_tol="1.0e-9" linear_solvers="ma97 ma57 mumps ma27 ma86" name="ipopt"/>
   </impact_operator>
-  <friction_operator abs_sp_tol="1.0e-4" disk_samples="1" max_iters="50" mu="8.0" rel_sp_tol="1.0e-4" staggering="geometric" type="linearized">
+  <friction_operator abs_sp_tol="1.0e-4" disk_samples="1" max_iters="50" mu="0.8" rel_sp_tol="1.0e-4" staggering="geometric" type="linearized">
     <solver con_tol="1.0e-9" linear_solvers="ma97 ma57 mumps ma27 ma86" name="ipopt"/>
   </friction_operator>
   <near_earth_gravity f="0.0 -9.81 0.0"/>
