@@ -34,6 +34,7 @@ typedef double scalar;
 
 %eigen_typemaps(Vector3s)
 %eigen_typemaps(VectorXs)
+%eigen_typemaps(VectorXi)
 %eigen_typemaps(MatrixXs)
 %eigen_typemaps(Eigen::Vector3d)
 

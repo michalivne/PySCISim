@@ -103,6 +103,8 @@ public:
     
     // get a list of contact points and the corresponding normal
     void get_contacts_normal_and_body_ind( ContactNormalVec& normal_and_body_ind_vec );
+    // returns a vector with number of collisions per body
+    VectorXs get_contacts_per_body();
     // iterates over all active contacts, and pushes bodies until there is no contact
     void resolve_contact();
     
@@ -203,6 +205,8 @@ public:
 
     // get a list of contact points and the corresponding normal
     void get_contacts_normal_and_body_ind( ContactNormalVec& normal_and_body_ind_vec );
+    // returns a vector with number of collisions per body
+    VectorXs get_contacts_per_body();
     // iterates over all active contacts, and pushes bodies until there is no contact
     void resolve_contact();
     
