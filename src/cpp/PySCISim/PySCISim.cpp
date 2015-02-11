@@ -648,20 +648,20 @@ VectorXs SCISim::get_contacts_per_body()
         if( constraint->getName() == "sphere_sphere" )
         {
             SphereSphereConstraint& sphere_sphere = sd_cast< SphereSphereConstraint&>( *constraint );
-            contacts_per_body(sphere_sphere.idx0())++;
-            contacts_per_body(sphere_sphere.idx1())++;
+            contacts_per_body(sphere_sphere.idx0()) += 1;
+            contacts_per_body(sphere_sphere.idx1()) += 1;
         }
         else if( constraint->getName() == "teleported_sphere_sphere" )
         {
             // TODO: Clean this up!
             TeleportedSphereSphereConstraint& teleported_sphere_sphere = sd_cast< TeleportedSphereSphereConstraint&>( *constraint );
-            contacts_per_body(teleported_sphere_sphere.idx0())++;
-            contacts_per_body(teleported_sphere_sphere.idx1())++;
+            contacts_per_body(teleported_sphere_sphere.idx0()) += 1;
+            contacts_per_body(teleported_sphere_sphere.idx1()) += 1;
         }
         else if( constraint->getName() == "static_plane_sphere" )
         {
             StaticPlaneSphereConstraint& plane_sphere = sd_cast< StaticPlaneSphereConstraint&>( *constraint );
-            contacts_per_body(plane_sphere.sphereIdx())++;
+            contacts_per_body(plane_sphere.sphereIdx()) += 1;
         }
         else
         {
@@ -1244,20 +1244,20 @@ VectorXs SCISimApp::get_contacts_per_body()
         if( constraint->getName() == "sphere_sphere" )
         {
             SphereSphereConstraint& sphere_sphere = sd_cast< SphereSphereConstraint&>( *constraint );
-            contacts_per_body(sphere_sphere.idx0())++;
-            contacts_per_body(sphere_sphere.idx1())++;
+            contacts_per_body(sphere_sphere.idx0()) += 1;
+            contacts_per_body(sphere_sphere.idx1()) += 1;
         }
         else if( constraint->getName() == "teleported_sphere_sphere" )
         {
             // TODO: Clean this up!
             TeleportedSphereSphereConstraint& teleported_sphere_sphere = sd_cast< TeleportedSphereSphereConstraint&>( *constraint );
-            contacts_per_body(teleported_sphere_sphere.idx0())++;
-            contacts_per_body(teleported_sphere_sphere.idx1())++;
+            contacts_per_body(teleported_sphere_sphere.idx0()) += 1;
+            contacts_per_body(teleported_sphere_sphere.idx1()) += 1;
         }
         else if( constraint->getName() == "static_plane_sphere" )
         {
             StaticPlaneSphereConstraint& plane_sphere = sd_cast< StaticPlaneSphereConstraint&>( *constraint );
-            contacts_per_body(plane_sphere.sphereIdx())++;
+            contacts_per_body(plane_sphere.sphereIdx()) += 1;
         }
         else
         {
