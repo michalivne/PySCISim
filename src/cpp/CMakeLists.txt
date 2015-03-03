@@ -18,7 +18,8 @@ INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/swig)
 
 
 # set path to include MacPorts rather thanl local python libraries.
-IF(APPLE)
+IF(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+    MESSAGE("***  Using OS X definitions")
     SET(CMAKE_LIBRARY_PATH /opt/local/lib ${CMAKE_LIBRARY_PATH})
 
     ADD_DEFINITIONS(
@@ -29,7 +30,21 @@ IF(APPLE)
 #        -fno-strict-aliasing
     )
 
-ENDIF (APPLE)
+ENDIF (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+
+IF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    MESSAGE("***  Using Linux definitions")
+    ADD_DEFINITIONS(
+    # C++ flags
+        -fPIC
+        -std=c++11
+#        -stdlib=libc++
+#        -stdlib=libstdc++
+#        -fno-strict-aliasing
+    )
+
+ENDIF (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+
 
 ADD_DEFINITIONS(
 # optimization
