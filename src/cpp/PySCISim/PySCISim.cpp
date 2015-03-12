@@ -565,7 +565,7 @@ VectorXs SCISim::get_x1_from_x0_dxdt(const VectorXs& x0,
         x1.segment<3>(3 * N + 3 * n) = aa1.axis() * aa1.angle();
     }
     
-    return v;
+    return x1;
 }
 
 VectorXs SCISim::get_x() {
@@ -1207,6 +1207,7 @@ void SCISimApp::get_contacts_normal_and_body_ind( ContactNormalVec& normal_and_b
             normal_and_body_ind_vec.push_back(ContactNormalElement(
                             contact_normal, sphere_sphere.idx1()));
         }
+            // TODO: remove me
         else if( constraint->getName() == "teleported_sphere_sphere" )
         {
             // TODO: Clean this up!
@@ -1222,6 +1223,7 @@ void SCISimApp::get_contacts_normal_and_body_ind( ContactNormalVec& normal_and_b
             normal_and_body_ind_vec.push_back(ContactNormalElement(
                    contact_normal, plane_sphere.sphereIdx()));
         }
+            // TODO: box-box, static_plane-box
         else
         {
             std::cerr << "Warning, penetration depth computation not implemented for: " << constraint->getName() << std::endl;
