@@ -671,19 +671,20 @@ VectorXs SCISim::get_contacts_per_body()
     return contacts_per_body;
 }
 
-void SCISim::resolve_contact() {
+bool SCISim::resolve_contact() {
     ContactNormalVec normal_and_body_ind_vec;
     bool is_contact;
     
     const RigidBodySimState& m_sim_state = m_sim.getState();
     VectorXs& q = const_cast< VectorXs& >(m_sim_state.q());
-    
+
+    bool was_contact = false;
     // as long as there is contact, push bodies away
     do {
         //        cout<<"HERE"<<endl;
         get_contacts_normal_and_body_ind(normal_and_body_ind_vec);
         if (normal_and_body_ind_vec.size())
-            is_contact = true;
+            was_contact = is_contact = true;
         else
             is_contact = false;
         
@@ -694,6 +695,8 @@ void SCISim::resolve_contact() {
             //            cout<<"Ind: "<<normal_and_body_ind.second<<"    n: "<<normal_and_body_ind.first(0)<<", "<<normal_and_body_ind.first(1)<<", "<<normal_and_body_ind.first(2)<<endl;
         }
     } while (is_contact);
+
+    return was_contact;
 }
 
 
