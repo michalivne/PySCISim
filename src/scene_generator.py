@@ -69,7 +69,7 @@ class SceneGenerator(object):
         return e
 
     def add_friction_operator(self,
-                              mu="0.8", type="linearized", disk_samples="1",
+                              mu="0.8", type="linearized", disk_samples="2",
                               rel_sp_tol="1.0e-4", abs_sp_tol="1.0e-4",
                               max_iters="50", staggering="geometric",
                               solver_params={}):
