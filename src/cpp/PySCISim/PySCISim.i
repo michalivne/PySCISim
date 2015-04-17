@@ -28,7 +28,7 @@ typedef double scalar;
 %include "std_map.i"
 
 %include "common.i"
-
+ 
 // SWIG interface definitions
 %ignore RigidBodySimState::getInertia;
 
@@ -41,6 +41,8 @@ typedef double scalar;
 typedef double scalar;
 
 %template(ForcesVector) std::vector< Force* >;
+%template(ConfigVector) std::vector<double>; 
+%template(SimConfigMap) std::map<std::string, std::vector<double> >; 
 
 %include "PySCISim.h"
 

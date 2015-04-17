@@ -27,7 +27,6 @@
 
 #include "ThreeDRigidBodiesUtils/XMLSceneParser.h"
 
-
 #include "ThreeDRigidBodiesQt4/Window.h"
 #include "ThreeDRigidBodiesQt4/GLWidget.h"
 #include "ThreeDRigidBodiesQt4/ContentWidget.h"
@@ -41,12 +40,16 @@
 #include <vector>
 #include <utility>
 
+#include <map>
+
 ////////////////////////////////////////////
 // SCISimWindow
 ////////////////////////////////////////////
 
 typedef std::pair <VectorXs, int> ContactNormalElement;
 typedef std::vector< ContactNormalElement > ContactNormalVec;
+typedef std::vector<double> ConfigVector;
+typedef std::map<std::string, ConfigVector > SimConfigMap;
 
 // SCISim class with no GUI
 class SCISim {
@@ -58,6 +61,7 @@ public:
     unsigned computeTimestepDisplayPrecision( const Rational<std::intmax_t>& dt, const std::string& dt_string );
     // simulation interface
     bool openScene(const std::string& xml_scene_file_name, unsigned fps=30, bool render_at_fps=true, bool lock_camera=false );
+    void loadScene(const std::string& scene_name, const SimConfigMap& scene_params, bool debug=false);
     
     // Methods to control the solver
     int stepSystem();

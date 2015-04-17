@@ -2,10 +2,13 @@
 
 name=`uname -n`
 
+mp_ver='4.9'
+env_str="CC=gcc-mp-$mp_ver CXX=g++-mp-$mp_ver FC=gfortran-mp-$mp_ver"
+
 rm -Rf cpp/build && \
 mkdir -p cpp/build && \
 cd cpp/build && \
-CC=gcc-mp-4.8 CXX=g++-mp-4.8 FC=gfortran-mp-4.8 cmake .. $* && \
+CC=gcc-mp-$mp_ver CXX=g++-mp-$mp_ver FC=gfortran-mp-$mp_ver cmake .. $* && \
 cd ../.. && \
 
-CC=gcc-mp-4.8 CXX=g++-mp-4.8 FC=gfortran-mp-4.8 ./make_all $*
+CC=gcc-mp-$mp_ver CXX=g++-mp-$mp_ver FC=gfortran-mp-$mp_ver ./make_all $*

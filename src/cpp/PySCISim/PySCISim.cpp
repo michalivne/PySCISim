@@ -19,12 +19,71 @@
 #include "ThreeDRigidBodies/Constraints/KinematicObjectSphereConstraint.h"
 #include "ThreeDRigidBodies/Constraints/CollisionUtilities.h"
 
+#include "SCISim/StringUtilities.h"
+#include "SCISim/Utilities.h"
+#include "SCISim/Math/Rational.h"
+#include "SCISim/ConstrainedMaps/ImpactMaps/ImpactOperator.h"
+#include "SCISim/ConstrainedMaps/ImpactMaps/GaussSeidelOperator.h"
+#include "SCISim/ConstrainedMaps/ImpactMaps/JacobiOperator.h"
+#include "SCISim/ConstrainedMaps/ImpactMaps/GROperator.h"
+#include "SCISim/ConstrainedMaps/ImpactMaps/GRROperator.h"
+#include "SCISim/ConstrainedMaps/ImpactMaps/LCPOperatorAPGD.h"
+#include "SCISim/ConstrainedMaps/ImpactMaps/LCPOperatorQuadProg.h"
+#include "SCISim/ConstrainedMaps/ImpactMaps/LCPOperatorEigenQuadProg.h"
+#include "SCISim/ConstrainedMaps/ImpactMaps/LCPOperatorQL.h"
+#include "SCISim/ConstrainedMaps/ImpactMaps/LCPOperatorQLVP.h"
+#include "SCISim/ConstrainedMaps/ImpactMaps/LCPOperatorIpopt.h"
+#include "SCISim/ConstrainedMaps/FrictionMaps/LinearMDPOperatorQL.h"
+#include "SCISim/ConstrainedMaps/FrictionMaps/LinearMDPOperatorIpopt.h"
+#include "SCISim/ConstrainedMaps/FrictionMaps/RestrictedSampleMDPOperatorIpopt.h"
+#include "SCISim/ConstrainedMaps/FrictionMaps/SmoothMDPOperatorIpopt.h"
+#include "SCISim/ConstrainedMaps/FrictionMaps/SmoothMDPOperatorAPGD.h"
+#include "SCISim/ConstrainedMaps/FrictionMaps/SmoothMDPOperatorGurobi.h"
+#include "SCISim/ConstrainedMaps/GeometricImpactFrictionMap.h"
+#include "SCISim/ConstrainedMaps/StabilizedImpactFrictionMap.h"
+
+#include "ThreeDRigidBodies/Geometry/RigidBodyGeometry.h"
+#include "ThreeDRigidBodies/Geometry/RigidBodyBox.h"
+#include "ThreeDRigidBodies/Geometry/RigidBodySphere.h"
+#include "ThreeDRigidBodies/Geometry/RigidBodyStaple.h"
+#include "ThreeDRigidBodies/Geometry/RigidBodyTriangleMesh.h"
+#include "ThreeDRigidBodies/RigidBodySimState.h"
+#include "ThreeDRigidBodies/Forces/NearEarthGravityForce.h"
+#include "ThreeDRigidBodies/RenderingState.h"
+#include "ThreeDRigidBodies/UnconstrainedMaps/SplitHamMap.h"
+#include "ThreeDRigidBodies/UnconstrainedMaps/DMVMap.h"
+#include "ThreeDRigidBodies/UnconstrainedMaps/ExactMap.h"
+#include "ThreeDRigidBodies/UnconstrainedMaps/ExponentialEulerMap.h"
+#include "ThreeDRigidBodies/StaticGeometry/StaticPlane.h"
+#include "ThreeDRigidBodies/StaticGeometry/StaticCylinder.h"
+#include "ThreeDRigidBodies/Portals/PlanarPortal.h"
+
+
 #include <unsupported/Eigen/MatrixFunctions>
 #include <Eigen/Geometry>
 #include <cmath>
 
 using namespace std;
 
+////////////////////////////////////////////
+// Auxiliary functions
+////////////////////////////////////////////
+
+// Converts std::vector< double > to Eigen::VectorXd
+inline Eigen::VectorXd vec_to_eigen(const ConfigVector& v) {
+    return Eigen::VectorXd::Map(&v[0],v.size());
+}
+
+inline Eigen::VectorXd validate_config(const SimConfigMap& scene_params, 
+    const std::string& param_name, unsigned int param_size) {
+    if (scene_params.find(param_name) == scene_params.end())
+        throw "Parameter: "+param_name+" is missing.";
+
+    if (scene_params.at(param_name).size() != param_size)
+        throw "Parameter: "+param_name+" has wrong size";
+
+    return vec_to_eigen(scene_params.at(param_name));
+}
 
 ////////////////////////////////////////////
 // SCISim
@@ -108,6 +167,98 @@ bool SCISim::openScene(const std::string& xml_scene_file_name, unsigned fps, boo
     
     return true;
 
+}
+
+void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_params, bool debug) {
+    // print all input parameters if debug is on
+    if (debug) {
+        cout<<endl<<"**** Scene: "<<scene_name<<endl;
+        for(SimConfigMap::const_iterator it = scene_params.begin(); it != scene_params.end(); it++) {
+            cout<<it->first<<" : "<<vec_to_eigen(it->second).transpose()<<endl;
+        }
+        cout<<endl;
+    }
+
+    // load timestep
+    double h = validate_config(scene_params, "h", 1)(0);
+    if (h <= 0.0)
+        throw "h must be > 0.";
+
+    // Simulation data to load
+    std::vector<std::unique_ptr<RigidBodyGeometry>> geometry;
+    std::vector<Vector3s> xs;
+    std::vector<Vector3s> vs;
+    std::vector<scalar> Ms;
+    std::vector<VectorXs> Rs;
+    std::vector<Vector3s> omegas;
+    std::vector<Vector3s> I0s;
+    std::vector<bool> fixeds;
+    std::vector<int> geometry_indices;
+
+    std::string new_scripting_callback_name = scene_name;
+    RigidBodySimState new_sim_state;
+
+    Matrix33sr R0;
+    R0.setIdentity();
+    Vector3s x = Vector3s::Zero();
+
+    // create a scene, set all values to 0, as x0/x1 determines the system state.
+    if (scene_name == "falling sphere") {
+        double r = validate_config(scene_params, "r", 1)(0);
+        if (r <= 0.0)
+            throw "r must be > 0.";
+
+        double rho = validate_config(scene_params, "rho", 1)(0);
+        if (rho <= 0.0)
+            throw "rho must be > 0.";
+
+        geometry.push_back( std::unique_ptr<RigidBodyGeometry>{ new RigidBodySphere( r ) } );
+        xs.push_back(x);
+        vs.push_back(Vector3s::Zero());        
+        omegas.push_back(Vector3s::Zero());
+        geometry_indices.push_back(0);
+        fixeds.push_back(false);
+
+        scalar M;
+        Vector3s CM;
+        Vector3s I;
+        Matrix33sr R;
+        geometry[geometry_indices.back()]->computeMassAndInertia( rho, M, CM, I, R );
+        Ms.push_back( M );
+        xs.push_back( x + CM );
+        I0s.push_back( I );
+        R = R0 * R;
+        VectorXs Rvec( 9 );
+        Rvec = Eigen::Map<VectorXs>( R.data(), 9, 1 );
+        Rs.push_back( Rvec );
+    } else if (scene_name == "sphere on plane") {
+    } else {
+        throw "Unknown scene name: "+scene_name;
+    }
+
+    // load the new scene 
+    new_sim_state.setState( xs, vs, Ms, Rs, omegas, I0s, fixeds, geometry_indices, geometry );
+    m_sim.setState(new_sim_state);
+    m_sim.clearConstraintCache(); // <- TODO: probs not needed, but won't hurt
+
+    // validate x0/x1 initial conditions.
+    int N = geometry.size();
+
+    Vector3s x0 = validate_config(scene_params, "x0", N*6);
+    Vector3s x1 = validate_config(scene_params, "x1", N*6);
+
+    // set system state by using x0/x1
+    set_dxdt(x0, x1, h);
+    set_x(x0);
+    
+    m_scripting_callback = KinematicScripting::initializeScriptingCallback( new_scripting_callback_name );
+    assert( m_scripting_callback != nullptr );
+
+    // store initial state
+    m_sim_state_backup = m_sim.getState();
+    
+    // read data from sim
+    updateSimData();
 }
 
 int SCISim::stepSystem() {
