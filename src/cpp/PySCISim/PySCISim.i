@@ -41,6 +41,7 @@ typedef double scalar;
 typedef double scalar;
 
 %template(ForcesVector) std::vector< Force* >;
+%template(StringVector) std::vector<std::string>; 
 %template(ConfigVector) std::vector<double>; 
 %template(SimConfigMap) std::map<std::string, std::vector<double> >; 
 

@@ -169,6 +169,14 @@ bool SCISim::openScene(const std::string& xml_scene_file_name, unsigned fps, boo
 
 }
 
+std::vector<std::string> SCISim::get_scenes_list() {
+    std::vector<std::string> scene_name_list;
+    scene_name_list.push_back("falling sphere");
+    scene_name_list.push_back("sphere on plane");
+
+    return scene_name_list;
+}
+
 void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_params, bool debug) {
     // print all input parameters if debug is on
     if (debug) {
@@ -200,7 +208,6 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
 
     Matrix33sr R0;
     R0.setIdentity();
-    Vector3s x = Vector3s::Zero();
 
     // create a scene, set all values to 0, as x0/x1 determines the system state.
     if (scene_name == "falling sphere") {
@@ -213,7 +220,7 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
             throw "rho must be > 0.";
 
         geometry.push_back( std::unique_ptr<RigidBodyGeometry>{ new RigidBodySphere( r ) } );
-        xs.push_back(x);
+        xs.push_back(Vector3s::Zero());
         vs.push_back(Vector3s::Zero());        
         omegas.push_back(Vector3s::Zero());
         geometry_indices.push_back(0);
@@ -224,8 +231,11 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
         Vector3s I;
         Matrix33sr R;
         geometry[geometry_indices.back()]->computeMassAndInertia( rho, M, CM, I, R );
+        cout<<"M: "<<endl<<M<<endl;
+        cout<<"CM: "<<endl<<CM<<endl;
+        cout<<"I: "<<endl<<I<<endl;
+        cout<<"R: "<<endl<<R<<endl;
         Ms.push_back( M );
-        xs.push_back( x + CM );
         I0s.push_back( I );
         R = R0 * R;
         VectorXs Rvec( 9 );
@@ -233,10 +243,25 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
         Rs.push_back( Rvec );
     } else if (scene_name == "sphere on plane") {
     } else {
-        throw "Unknown scene name: "+scene_name;
+        std::vector< std::string > all_names_vec = get_scenes_list();
+        std::string all_names = "";
+        for (std::vector< std::string >::iterator it = all_names_vec.begin();
+            it != all_names_vec.end(); it++)
+            all_names += "'"+(*it)+"', ";
+
+        throw "Unknown scene name: "+scene_name+". Please use one of the following scene names: "+all_names;
     }
 
-    // load the new scene 
+    // load the new scene
+    cout<<"xs "<<xs.size()<<endl; 
+    cout<<"vs "<<vs.size()<<endl; 
+    cout<<"Ms "<<Ms.size()<<endl; 
+    cout<<"Rs "<<Rs.size()<<endl; 
+    cout<<"omegas "<<omegas.size()<<endl; 
+    cout<<"I0s "<<I0s.size()<<endl; 
+    cout<<"fixeds "<<fixeds.size()<<endl; 
+    cout<<"geometry_indices "<<geometry_indices.size()<<endl; 
+    cout<<"geometrys "<<geometry.size()<<endl; 
     new_sim_state.setState( xs, vs, Ms, Rs, omegas, I0s, fixeds, geometry_indices, geometry );
     m_sim.setState(new_sim_state);
     m_sim.clearConstraintCache(); // <- TODO: probs not needed, but won't hurt
@@ -244,14 +269,14 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
     // validate x0/x1 initial conditions.
     int N = geometry.size();
 
-    Vector3s x0 = validate_config(scene_params, "x0", N*6);
-    Vector3s x1 = validate_config(scene_params, "x1", N*6);
+    VectorXs x0 = validate_config(scene_params, "x0", N*6);
+    VectorXs x1 = validate_config(scene_params, "x1", N*6);
 
     // set system state by using x0/x1
     set_dxdt(x0, x1, h);
     set_x(x0);
     
-    m_scripting_callback = KinematicScripting::initializeScriptingCallback( new_scripting_callback_name );
+    m_scripting_callback = KinematicScripting::initializeScriptingCallback( "" );
     assert( m_scripting_callback != nullptr );
 
     // store initial state
