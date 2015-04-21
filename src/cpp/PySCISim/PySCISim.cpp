@@ -177,7 +177,13 @@ std::vector<std::string> SCISim::get_scenes_list() {
     return scene_name_list;
 }
 
-void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_params, bool debug) {
+void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_params, 
+    bool debug,
+    const std::string unconstrained_map_type, 
+    const std::string impact_operator_type, double impact_operator_v_tol,
+    const std::string friction_operator_type, int friction_operator_disk_samples, double friction_operator_tol,
+    int friction_operator_max_iters, const std::string friction_operator_staggering_type,
+    std::vector< std::string > linear_solvers) {
     // print all input parameters if debug is on
     if (debug) {
         cout<<endl<<"**** Scene: "<<scene_name<<endl;
@@ -185,12 +191,35 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
             cout<<it->first<<" : "<<vec_to_eigen(it->second).transpose()<<endl;
         }
         cout<<endl;
+
+        cout<<"Linear solvers for use with IpOpt: ";
+        for (std::vector< std::string >::iterator it = linear_solvers.begin(); it != linear_solvers.end(); it++) {
+            cout<<*it<<", ";
+        }
+        cout<<endl;
     }
+
+    if (impact_operator_v_tol <= 0.0)
+        throw "impact_operator_v_tol  must be > 0.";
+
+    if (friction_operator_tol <= 0.0)
+        throw "friction_operator_tol  must be > 0.";
+
+    if (friction_operator_max_iters <= 0)
+        throw "friction_operator_max_iters  must be > 0.";
+
+    if (friction_operator_disk_samples <= 0)
+        throw "friction_operator_disk_samples  must be > 0.";
+
+    // ** load and empty SCISim scripting callback
+    m_scripting_callback = KinematicScripting::initializeScriptingCallback( "" );
+    assert( m_scripting_callback != nullptr );
 
     // load timestep
     double h = validate_config(scene_params, "h", 1)(0);
     if (h <= 0.0)
         throw "h must be > 0.";
+    m_dt = 1.0/h;
 
     // Simulation data to load
     std::vector<std::unique_ptr<RigidBodyGeometry>> geometry;
@@ -203,7 +232,6 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
     std::vector<bool> fixeds;
     std::vector<int> geometry_indices;
 
-    std::string new_scripting_callback_name = scene_name;
     RigidBodySimState new_sim_state;
 
     Matrix33sr R0;
@@ -211,37 +239,55 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
 
     // create a scene, set all values to 0, as x0/x1 determines the system state.
     if (scene_name == "falling sphere") {
-        double r = validate_config(scene_params, "r", 1)(0);
-        if (r <= 0.0)
-            throw "r must be > 0.";
+        // ** Load SCISIm simState
+        {
+            double r = validate_config(scene_params, "r", 1)(0);
+            if (r <= 0.0)
+                throw "r must be > 0.";
 
-        double rho = validate_config(scene_params, "rho", 1)(0);
-        if (rho <= 0.0)
-            throw "rho must be > 0.";
+            double rho = validate_config(scene_params, "rho", 1)(0);
+            if (rho <= 0.0)
+                throw "rho must be > 0.";
 
-        geometry.push_back( std::unique_ptr<RigidBodyGeometry>{ new RigidBodySphere( r ) } );
-        xs.push_back(Vector3s::Zero());
-        vs.push_back(Vector3s::Zero());        
-        omegas.push_back(Vector3s::Zero());
-        geometry_indices.push_back(0);
-        fixeds.push_back(false);
+            geometry.push_back( std::unique_ptr<RigidBodyGeometry>{ new RigidBodySphere( r ) } );
+            xs.push_back(Vector3s::Zero());
+            vs.push_back(Vector3s::Zero());        
+            omegas.push_back(Vector3s::Zero());
+            geometry_indices.push_back(0);
+            fixeds.push_back(false);
 
-        scalar M;
-        Vector3s CM;
-        Vector3s I;
-        Matrix33sr R;
-        geometry[geometry_indices.back()]->computeMassAndInertia( rho, M, CM, I, R );
-        cout<<"M: "<<endl<<M<<endl;
-        cout<<"CM: "<<endl<<CM<<endl;
-        cout<<"I: "<<endl<<I<<endl;
-        cout<<"R: "<<endl<<R<<endl;
-        Ms.push_back( M );
-        I0s.push_back( I );
-        R = R0 * R;
-        VectorXs Rvec( 9 );
-        Rvec = Eigen::Map<VectorXs>( R.data(), 9, 1 );
-        Rs.push_back( Rvec );
+            scalar M;
+            Vector3s CM;
+            Vector3s I;
+            Matrix33sr R;
+            geometry[geometry_indices.back()]->computeMassAndInertia( rho, M, CM, I, R );
+            if (debug) {
+                cout<<"M: "<<endl<<M<<endl;
+                cout<<"CM: "<<endl<<CM<<endl;
+                cout<<"I: "<<endl<<I<<endl;
+                cout<<"R: "<<endl<<R<<endl;
+            }
+            Ms.push_back( M );
+            I0s.push_back( I );
+            R = R0 * R;
+            VectorXs Rvec( 9 );
+            Rvec = Eigen::Map<VectorXs>( R.data(), 9, 1 );
+            Rs.push_back( Rvec );
+        }
+
+        //** load SCISim static planes
+        {
+            Vector3s p0 = validate_config(scene_params, "p0", 3);
+            Vector3s n = validate_config(scene_params, "n", 3);
+            if (n.norm()) {
+                n.normalize();
+            } else {
+                n = Eigen::Vector3d::UnitY();
+            }
+            new_sim_state.addStaticPlane( StaticPlane( p0, n ) );
+        }
     } else if (scene_name == "sphere on plane") {
+        throw scene_name+" is not implemented yet.";
     } else {
         std::vector< std::string > all_names_vec = get_scenes_list();
         std::string all_names = "";
@@ -252,19 +298,124 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
         throw "Unknown scene name: "+scene_name+". Please use one of the following scene names: "+all_names;
     }
 
+    // ** load SCISIm forces
+    if (scene_params.find("g") != scene_params.end()) {
+        Vector3s g = validate_config(scene_params, "g", 3);
+        new_sim_state.addForce( NearEarthGravityForce( g ) );
+
+        if (debug)
+            cout<<"Added near earth gravity forge g: "<<g.transpose()<<endl;
+    }
+
     // load the new scene
-    cout<<"xs "<<xs.size()<<endl; 
-    cout<<"vs "<<vs.size()<<endl; 
-    cout<<"Ms "<<Ms.size()<<endl; 
-    cout<<"Rs "<<Rs.size()<<endl; 
-    cout<<"omegas "<<omegas.size()<<endl; 
-    cout<<"I0s "<<I0s.size()<<endl; 
-    cout<<"fixeds "<<fixeds.size()<<endl; 
-    cout<<"geometry_indices "<<geometry_indices.size()<<endl; 
-    cout<<"geometrys "<<geometry.size()<<endl; 
+    if (debug) {
+        cout<<"xs "<<xs.size()<<endl; 
+        cout<<"vs "<<vs.size()<<endl; 
+        cout<<"Ms "<<Ms.size()<<endl; 
+        cout<<"Rs "<<Rs.size()<<endl; 
+        cout<<"omegas "<<omegas.size()<<endl; 
+        cout<<"I0s "<<I0s.size()<<endl; 
+        cout<<"fixeds "<<fixeds.size()<<endl; 
+        cout<<"geometry_indices "<<geometry_indices.size()<<endl; 
+        cout<<"geometrys "<<geometry.size()<<endl; 
+    }
     new_sim_state.setState( xs, vs, Ms, Rs, omegas, I0s, fixeds, geometry_indices, geometry );
     m_sim.setState(new_sim_state);
     m_sim.clearConstraintCache(); // <- TODO: probs not needed, but won't hurt
+
+    // ** set SCISim unconstrained map
+    if (unconstrained_map_type == "split_ham") {
+      m_unconstrained_map.reset( new SplitHamMap );
+    } else if (unconstrained_map_type == "dmv") {
+      m_unconstrained_map.reset( new DMVMap );
+    } else if (unconstrained_map_type == "exact") {
+      m_unconstrained_map.reset( new ExactMap );
+    } else if (unconstrained_map_type == "exponential_euler") {
+      m_unconstrained_map.reset( new ExponentialEulerMap );
+    } else {
+        throw "Unknown unconstrained_map_type: "+unconstrained_map_type+". Allowed values: split_ham, dmv, exact, exponential_euler";
+    }
+
+    // ** set SCISim impact operator
+    if (scene_params.find("CoR") != scene_params.end()) {
+        m_CoR = validate_config(scene_params, "CoR", 1)(0);
+
+        if ((m_CoR < 0.0) || (m_CoR > 1.0))
+            throw "CoR must be: 0.0 <= CoR <= 1.0";
+        
+        if( impact_operator_type == "gauss_seidel" ) {
+            m_impact_operator.reset( new GaussSeidelOperator( impact_operator_v_tol ) );
+        } else if( impact_operator_type == "jacobi" ) {
+            m_impact_operator.reset( new JacobiOperator( impact_operator_v_tol ) );
+        } else if( impact_operator_type == "lcp" ) {
+            m_impact_operator.reset( new LCPOperatorIpopt( linear_solvers, impact_operator_v_tol ) );
+        } else if( impact_operator_type == "gr" ) {
+            std::unique_ptr<ImpactOperator> lcp_solver{ nullptr };
+            lcp_solver.reset( new LCPOperatorIpopt( linear_solvers, impact_operator_v_tol ) );
+            m_impact_operator.reset( new GROperator( impact_operator_v_tol, *lcp_solver ) );
+        } else {
+            throw "Unknown impact operator: "+impact_operator_type+". Allowed values: gauss_seidel, jacobi, lcp, gr.";
+        }
+
+
+        if (debug)
+            cout<<"Added impact operator: "<<impact_operator_type<<
+                "with tol: "<<impact_operator_v_tol<<
+                ", CoR: "<<m_CoR<<endl;
+    } else {
+        m_impact_operator.reset( nullptr );
+        m_CoR = SCALAR_NAN;
+    }
+
+    // ** set SCISim friction operator
+    if (scene_params.find("mu") != scene_params.end()) {
+        m_mu = validate_config(scene_params, "mu", 1)(0);
+
+        if ((m_mu < 0.0) || (m_mu > 1.0))
+            throw "mu must be: 0.0 <= mu <= 1.0";
+
+        if( friction_operator_type == "linearized" ) {
+            if( friction_operator_disk_samples > 1 ) {
+              m_friction_operator.reset( new LinearMDPOperatorIpopt( friction_operator_disk_samples, 
+                linear_solvers, friction_operator_tol ) );
+            } else if( friction_operator_disk_samples == 1 ) {
+              m_friction_operator.reset( new RestrictedSampleMDPOperatorIpopt( linear_solvers, friction_operator_tol ) );
+            }
+        } else if( friction_operator_type == "smooth" ) {
+            m_friction_operator.reset( new SmoothMDPOperatorIpopt( linear_solvers, friction_operator_tol ) );
+        } else {
+            throw "Unknown friction operator: "+friction_operator_type+". Allowed values: linearized, smooth.";
+        }
+
+        bool internal_warm_start_alpha = false;
+        bool internal_warm_start_beta = false;
+
+        if( friction_operator_staggering_type == "geometric" ) {
+            m_impact_friction_map.reset( new GeometricImpactFrictionMap( friction_operator_tol, 
+                friction_operator_tol, friction_operator_max_iters, 
+                internal_warm_start_alpha, internal_warm_start_beta, false, false ) );
+        } else if( friction_operator_staggering_type == "stabilized" ) {
+            m_impact_friction_map.reset( new StabilizedImpactFrictionMap( friction_operator_tol, 
+                friction_operator_tol, friction_operator_max_iters, 
+                internal_warm_start_alpha, internal_warm_start_beta ) );
+        } else {
+            throw "Unknown friction stagerring type: "+friction_operator_type+". Allowed values: geometric, stabilized.";
+        }
+
+        if (debug)
+            cout<<"Added friction operator:"<<friction_operator_type<<
+                " with disk samples: "<<friction_operator_disk_samples<<
+                ", max iter: "<<friction_operator_max_iters<<
+                ", staggering type: "<<friction_operator_staggering_type<<
+                ", tol: "<<friction_operator_tol<<
+                ",  mu: "<<m_mu<<endl;
+    } else {
+        m_friction_operator.reset( nullptr );
+        m_mu = SCALAR_NAN;
+        m_impact_friction_map.reset( nullptr );
+    }
+
+    // set current sysatem state
 
     // validate x0/x1 initial conditions.
     int N = geometry.size();
@@ -276,9 +427,6 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
     set_dxdt(x0, x1, h);
     set_x(x0);
     
-    m_scripting_callback = KinematicScripting::initializeScriptingCallback( "" );
-    assert( m_scripting_callback != nullptr );
-
     // store initial state
     m_sim_state_backup = m_sim.getState();
     

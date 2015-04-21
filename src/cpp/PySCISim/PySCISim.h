@@ -62,7 +62,13 @@ public:
     // simulation interface
     bool openScene(const std::string& xml_scene_file_name, unsigned fps=30, bool render_at_fps=true, bool lock_camera=false );
     std::vector<std::string> get_scenes_list();
-    void loadScene(const std::string& scene_name, const SimConfigMap& scene_params, bool debug=false);
+    void loadScene(const std::string& scene_name, const SimConfigMap& scene_params, 
+        bool debug=false,
+        const std::string unconstrained_map_type="split_ham",
+        const std::string impact_operator_type="lcp", double impact_operator_v_tol=1e-9,
+        const std::string friction_operator_type="linearized", int friction_operator_disk_samples=2, double friction_operator_tol=1e-4,
+        int friction_operator_max_iters=50, const std::string friction_operator_staggering_type="geometric",
+        std::vector< std::string > linear_solvers={"ma97", "ma57", "mumps", "ma27", "ma86"});
     
     // Methods to control the solver
     int stepSystem();
