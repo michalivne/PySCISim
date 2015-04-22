@@ -55,13 +55,31 @@ def compare_sim(xml_sim, sim, step_num, scene_name):
         plt.ylabel('Sim x')
         plt.plot(all_x)
 
+def get_x_v(scene_params):
+    """
+    Return XML friendly x, v from scene_params.
+    """
+    sim = PySCISim.SCISim()
+    x = scene_params["x0"].flatten()
+    v = sim.get_dxdt_from_x(scene_params["x0"],
+                    scene_params["x1"],
+                    H
+                    ).flatten()
+
+
+    # truncate accuracy to support XML
+    x = np.fromstring(str(x).strip('[').strip(']'), sep=' ')
+    v = np.fromstring(str(v).strip('[').strip(']'), sep=' ')
+
+    return x, v
+
 #===============================================================================
 # UnitTests
 #===============================================================================
 
 class TestStaticSCISImScenes(unittest.TestCase):
     def test_free_fall_sphere(self):
-        scenes_params = {
+        scene_params = {
             "r": np.array([1.0]),
             "rho": np.array([1.0]),
             "x0": np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
@@ -70,12 +88,7 @@ class TestStaticSCISImScenes(unittest.TestCase):
             "g": G,
         }
 
-        sim = PySCISim.SCISim()
-        x = scenes_params["x0"].flatten()
-        v = sim.get_dxdt_from_x(scenes_params["x0"],
-                                scenes_params["x1"],
-                                H
-                                ).flatten()
+        x, v = get_x_v(scene_params)
 
         # generate an XML scene
         scene = SceneGenerator()
@@ -84,13 +97,13 @@ class TestStaticSCISImScenes(unittest.TestCase):
         scene.add_impact_operator()
         scene.add_friction_operator()
         scene.add_near_earth_gravity(f=G)
-        scene.add_sphere(name="ball", r=scenes_params["r"][0])
+        scene.add_sphere(name="ball", r=scene_params["r"][0])
         scene.add_rigid_body_with_density(geometry_name="ball",
                                             x=x[0:3],
                                             R=x[3:6],
                                             v=v[0:3],
                                             omega=v[3:6],
-                                            rho=scenes_params["rho"][0],
+                                            rho=scene_params["rho"][0],
                                             fixed="0")
 
         scene_name = "falling sphere"
@@ -103,12 +116,13 @@ class TestStaticSCISImScenes(unittest.TestCase):
         xml_sim.openScene(xml_scene_fname)
 
         # load static scene
-        sim.loadScene(scene_name, scenes_params, True)
+        sim = PySCISim.SCISim()
+        sim.loadScene(scene_name, scene_params, True)
 
         compare_sim(xml_sim, sim, SIM_STEPS, scene_name)
 
     def test_sphere_on_plane(self):
-        scenes_params = {
+        scene_params = {
             "r": np.array([1.0]),
             "rho": np.array([1.0]),
             "p0": np.array([0.0, -2.0, 0.0]),
@@ -121,32 +135,27 @@ class TestStaticSCISImScenes(unittest.TestCase):
             "g": G,
         }
 
-        scenes_params["n"] /= np.sqrt(np.sum(scenes_params["n"]**2))
+        scene_params["n"] /= np.sqrt(np.sum(scene_params["n"]**2))
 
-        sim = PySCISim.SCISim()
-        x = scenes_params["x0"].flatten()
-        v = sim.get_dxdt_from_x(scenes_params["x0"],
-                                scenes_params["x1"],
-                                H
-                                ).flatten()
+        x, v = get_x_v(scene_params)
 
         # generate an XML scene
         scene = SceneGenerator()
 
         scene.add_integrator(dt=str(H))
-        scene.add_impact_operator(CoR=scenes_params["CoR"][0])
-        scene.add_friction_operator(mu=scenes_params["mu"][0])
+        scene.add_impact_operator(CoR=scene_params["CoR"][0])
+        scene.add_friction_operator(mu=scene_params["mu"][0])
         scene.add_near_earth_gravity(f=G)
-        scene.add_sphere(name="ball", r=scenes_params["r"][0])
+        scene.add_sphere(name="ball", r=scene_params["r"][0])
         scene.add_rigid_body_with_density(geometry_name="ball",
                                             x=x[0:3],
                                             R=x[3:6],
                                             v=v[0:3],
                                             omega=v[3:6],
-                                            rho=scenes_params["rho"][0],
+                                            rho=scene_params["rho"][0],
                                             fixed="0")
-        scene.add_static_plane(x=scenes_params["p0"],
-                               n=scenes_params["n"],
+        scene.add_static_plane(x=scene_params["p0"],
+                               n=scene_params["n"],
                                r="10.0 5.0")
 
         scene_name = "sphere on plane"
@@ -159,12 +168,13 @@ class TestStaticSCISImScenes(unittest.TestCase):
         xml_sim.openScene(xml_scene_fname)
 
         # load static scene
-        sim.loadScene(scene_name, scenes_params, True)
+        sim = PySCISim.SCISim()
+        sim.loadScene(scene_name, scene_params, True)
 
         compare_sim(xml_sim, sim, SIM_STEPS, scene_name)
 
     def test_box_on_plane(self):
-        scenes_params = {
+        scene_params = {
             "r": np.array([0.3, 0.5, 1.0]),
             "rho": np.array([1.0]),
             "p0": np.array([0.0, -2.0, 0.0]),
@@ -177,32 +187,27 @@ class TestStaticSCISImScenes(unittest.TestCase):
             "g": G,
         }
 
-        scenes_params["n"] /= np.sqrt(np.sum(scenes_params["n"]**2))
+        scene_params["n"] /= np.sqrt(np.sum(scene_params["n"]**2))
 
-        sim = PySCISim.SCISim()
-        x = scenes_params["x0"].flatten()
-        v = sim.get_dxdt_from_x(scenes_params["x0"],
-                                scenes_params["x1"],
-                                H
-                                ).flatten()
+        x, v = get_x_v(scene_params)
 
         # generate an XML scene
         scene = SceneGenerator()
 
         scene.add_integrator(dt=str(H))
-        scene.add_impact_operator(CoR=scenes_params["CoR"][0])
-        scene.add_friction_operator(mu=scenes_params["mu"][0])
+        scene.add_impact_operator(CoR=scene_params["CoR"][0])
+        scene.add_friction_operator(mu=scene_params["mu"][0])
         scene.add_near_earth_gravity(f=G)
-        scene.add_box(name="box", r=scenes_params["r"])
+        scene.add_box(name="box", r=scene_params["r"])
         scene.add_rigid_body_with_density(geometry_name="box",
                                             x=x[0:3],
                                             R=x[3:6],
                                             v=v[0:3],
                                             omega=v[3:6],
-                                            rho=scenes_params["rho"][0],
+                                            rho=scene_params["rho"][0],
                                             fixed="0")
-        scene.add_static_plane(x=scenes_params["p0"],
-                               n=scenes_params["n"],
+        scene.add_static_plane(x=scene_params["p0"],
+                               n=scene_params["n"],
                                r="10.0 5.0")
 
         scene_name = "box on plane"
@@ -215,7 +220,8 @@ class TestStaticSCISImScenes(unittest.TestCase):
         xml_sim.openScene(xml_scene_fname)
 
         # load static scene
-        sim.loadScene(scene_name, scenes_params, True)
+        sim = PySCISim.SCISim()
+        sim.loadScene(scene_name, scene_params, True)
 
         compare_sim(xml_sim, sim, SIM_STEPS, scene_name)
 
