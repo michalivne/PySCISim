@@ -1085,10 +1085,9 @@ void SCISim::get_contacts_normal_and_body_ind( ContactNormalVec& normal_and_body
     //for( std::vector<std::unique_ptr<Constraint>>::size_type i = 0; i < active_set.size(); ++i )
     for( const std::unique_ptr<Constraint>& constraint : active_set )
     {
-        BodyBodyConstraint& cur_constraint = sd_cast< BodyBodyConstraint&>( *constraint );
-        cur_constraint.getWorldSpaceContactNormal( q, contact_normal );
+        constraint->getWorldSpaceContactNormal( q, contact_normal );
         std::pair<int,int> bodies;
-        cur_constraint.getSimulatedBodyIndices( bodies );
+        constraint->getSimulatedBodyIndices( bodies );
         if (bodies.first >= 0)
             normal_and_body_ind_vec.push_back(ContactNormalElement(contact_normal, bodies.first));
         if (bodies.second >= 0)
@@ -1108,9 +1107,8 @@ VectorXs SCISim::get_contacts_per_body()
     //for( std::vector<std::unique_ptr<Constraint>>::size_type i = 0; i < active_set.size(); ++i )
     for( const std::unique_ptr<Constraint>& constraint : active_set )
     {
-        BodyBodyConstraint& cur_constraint = sd_cast< BodyBodyConstraint&>( *constraint );
         std::pair<int,int> bodies;
-        cur_constraint.getSimulatedBodyIndices( bodies );
+        constraint->getSimulatedBodyIndices( bodies );
         if (bodies.first >= 0)
             contacts_per_body(bodies.first) += 1;
         if (bodies.second >= 0)
