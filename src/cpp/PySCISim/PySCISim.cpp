@@ -228,7 +228,8 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
     bool debug,
     const std::string unconstrained_map_type, 
     const std::string impact_operator_type, double impact_operator_v_tol,
-    const std::string friction_operator_type, int friction_operator_disk_samples, double friction_operator_tol,
+    const std::string friction_operator_type, int friction_operator_disk_samples, 
+    double friction_operator_tol, double friction_operator_solver_tol,
     int friction_operator_max_iters, const std::string friction_operator_staggering_type,
     std::vector< std::string > linear_solvers) {
     // print all input parameters if debug is on
@@ -251,6 +252,8 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
 
     if (friction_operator_tol <= 0.0)
         throw "friction_operator_tol  must be > 0.";
+    if (friction_operator_solver_tol <= 0.0)
+        throw "friction_operator_solver_tol  must be > 0.";
 
     if (friction_operator_max_iters <= 0)
         throw "friction_operator_max_iters  must be > 0.";
@@ -332,6 +335,39 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
             Rs.push_back( Rvec );
         }
     } else if (scene_name == "sphere on plane") {
+            double r = validate_config(scene_params, "r", 1)(0);
+            if (r <= 0.0)
+                throw "r must be > 0.";
+
+            double rho = validate_config(scene_params, "rho", 1)(0);
+            if (rho <= 0.0)
+                throw "rho must be > 0.";
+
+            geometry.push_back( std::unique_ptr<RigidBodyGeometry>{ new RigidBodySphere( r ) } );
+            xs.push_back(Vector3s::Zero());
+            vs.push_back(Vector3s::Zero());        
+            omegas.push_back(Vector3s::Zero());
+            geometry_indices.push_back(0);
+            fixeds.push_back(false);
+
+            scalar M;
+            Vector3s CM;
+            Vector3s I;
+            Matrix33sr R;
+            geometry[geometry_indices.back()]->computeMassAndInertia( rho, M, CM, I, R );
+            if (debug) {
+                cout<<"M: "<<endl<<M<<endl;
+                cout<<"CM: "<<endl<<CM<<endl;
+                cout<<"I: "<<endl<<I<<endl;
+                cout<<"R: "<<endl<<R<<endl;
+            }
+            Ms.push_back( M );
+            I0s.push_back( I );
+            R = R0 * R;
+            VectorXs Rvec( 9 );
+            Rvec = Eigen::Map<VectorXs>( R.data(), 9, 1 );
+            Rs.push_back( Rvec );
+
         //** load SCISim static planes
         {
             Vector3s p0 = validate_config(scene_params, "p0", 3);
@@ -343,7 +379,6 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
             }
             new_sim_state.addStaticPlane( StaticPlane( p0, n ) );
         }
-        throw scene_name+" is not implemented yet.";
     } else {
         std::vector< std::string > all_names_vec = get_scenes_list();
         std::string all_names = "";
@@ -363,7 +398,7 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
             cout<<"Added near earth gravity forge g: "<<g.transpose()<<endl;
     }
 
-    // load the new scene
+    // load the new scene into the new state
     if (debug) {
         cout<<"xs "<<xs.size()<<endl; 
         cout<<"vs "<<vs.size()<<endl; 
@@ -376,8 +411,6 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
         cout<<"geometrys "<<geometry.size()<<endl; 
     }
     new_sim_state.setState( xs, vs, Ms, Rs, omegas, I0s, fixeds, geometry_indices, geometry );
-    m_sim.setState(new_sim_state);
-    m_sim.clearConstraintCache(); // <- TODO: probs not needed, but won't hurt
 
     // ** set SCISim unconstrained map
     if (unconstrained_map_type == "split_ham") {
@@ -416,7 +449,7 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
 
         if (debug)
             cout<<"Added impact operator: "<<impact_operator_type<<
-                "with tol: "<<impact_operator_v_tol<<
+                " with tol: "<<impact_operator_v_tol<<
                 ", CoR: "<<m_CoR<<endl;
     } else {
         m_impact_operator.reset( nullptr );
@@ -433,12 +466,12 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
         if( friction_operator_type == "linearized" ) {
             if( friction_operator_disk_samples > 1 ) {
               m_friction_operator.reset( new LinearMDPOperatorIpopt( friction_operator_disk_samples, 
-                linear_solvers, friction_operator_tol ) );
+                linear_solvers, friction_operator_solver_tol ) );
             } else if( friction_operator_disk_samples == 1 ) {
-              m_friction_operator.reset( new RestrictedSampleMDPOperatorIpopt( linear_solvers, friction_operator_tol ) );
+              m_friction_operator.reset( new RestrictedSampleMDPOperatorIpopt( linear_solvers, friction_operator_solver_tol ) );
             }
         } else if( friction_operator_type == "smooth" ) {
-            m_friction_operator.reset( new SmoothMDPOperatorIpopt( linear_solvers, friction_operator_tol ) );
+            m_friction_operator.reset( new SmoothMDPOperatorIpopt( linear_solvers, friction_operator_solver_tol ) );
         } else {
             throw "Unknown friction operator: "+friction_operator_type+". Allowed values: linearized, smooth.";
         }
@@ -459,7 +492,7 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
         }
 
         if (debug)
-            cout<<"Added friction operator:"<<friction_operator_type<<
+            cout<<"Added friction operator: "<<friction_operator_type<<
                 " with disk samples: "<<friction_operator_disk_samples<<
                 ", max iter: "<<friction_operator_max_iters<<
                 ", staggering type: "<<friction_operator_staggering_type<<
@@ -478,6 +511,10 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
 
     VectorXs x0 = validate_config(scene_params, "x0", N*6);
     VectorXs x1 = validate_config(scene_params, "x1", N*6);
+
+    // load new state
+    m_sim.setState(new_sim_state);
+    m_sim.clearConstraintCache(); // <- TODO: probs not needed, but won't hurt
 
     // set system state by using x0/x1
     set_dxdt(x0, x1, h);

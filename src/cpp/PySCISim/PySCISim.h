@@ -66,7 +66,8 @@ public:
         bool debug=false,
         const std::string unconstrained_map_type="split_ham",
         const std::string impact_operator_type="lcp", double impact_operator_v_tol=1e-9,
-        const std::string friction_operator_type="linearized", int friction_operator_disk_samples=2, double friction_operator_tol=1e-4,
+        const std::string friction_operator_type="linearized", int friction_operator_disk_samples=2, 
+        double friction_operator_tol=1e-4, double friction_operator_solver_tol=1e-9,
         int friction_operator_max_iters=50, const std::string friction_operator_staggering_type="geometric",
         std::vector< std::string > linear_solvers={"ma97", "ma57", "mumps", "ma27", "ma86"});
     
