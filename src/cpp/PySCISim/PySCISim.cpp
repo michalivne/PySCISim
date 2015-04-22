@@ -177,6 +177,53 @@ std::vector<std::string> SCISim::get_scenes_list() {
     return scene_name_list;
 }
 
+/* f : number to convert.
+ * num, denom: returned parts of the rational.
+ * md: max denominator value.  Note that machine floating point number
+ *     has a finite resolution (10e-16 ish for 64 bit double), so specifying
+ *     a "best match with minimal error" is often wrong, because one can
+ *     always just retrieve the significand and return that divided by 
+ *     2**52, which is in a sense accurate, but generally not very useful:
+ *     1.0/7.0 would be "2573485501354569/18014398509481984", for example.
+ */
+template< class T>
+void rat_approx(double f, T md, T *num, T *denom)
+{
+    /*  a: continued fraction coefficients. */
+    T a, h[3] = { 0, 1, 0 }, k[3] = { 1, 0, 0 };
+    T x, d, n = 1;
+    int i, neg = 0;
+ 
+    if (md <= 1) { *denom = 1; *num = (T) f; return; }
+ 
+    if (f < 0) { neg = 1; f = -f; }
+ 
+    while (f != floor(f)) { n <<= 1; f *= 2; }
+    d = f;
+ 
+    /* continued fraction and check denominator each step */
+    for (i = 0; i < 64; i++) {
+        a = n ? d / n : 0;
+        if (i && !a) break;
+ 
+        x = d; d = n; n = x % n;
+ 
+        x = a;
+        if (k[1] * a + k[0] >= md) {
+            x = (md - k[0]) / k[1];
+            if (x * 2 >= a || k[1] >= md)
+                i = 65;
+            else
+                break;
+        }
+ 
+        h[2] = x * h[1] + h[0]; h[0] = h[1]; h[1] = h[2];
+        k[2] = x * k[1] + k[0]; k[0] = k[1]; k[1] = k[2];
+    }
+    *denom = k[1];
+    *num = neg ? -h[1] : h[1];
+}
+
 void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_params, 
     bool debug,
     const std::string unconstrained_map_type, 
@@ -219,7 +266,17 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
     double h = validate_config(scene_params, "h", 1)(0);
     if (h <= 0.0)
         throw "h must be > 0.";
-    m_dt = 1.0/h;
+    {
+        std::intmax_t num, denom;
+        rat_approx<std::intmax_t>(h, std::numeric_limits<std::intmax_t>::max(), &num, &denom);
+        m_dt = Rational<std::intmax_t>(num, denom);
+
+        if (double(m_dt) != h)
+            throw "h must be a rational number.";
+    }
+
+    if (debug) 
+        cout<<"** dt: "<<m_dt<<"  h: "<<h<<endl;
 
     // Simulation data to load
     std::vector<std::unique_ptr<RigidBodyGeometry>> geometry;
@@ -274,7 +331,7 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
             Rvec = Eigen::Map<VectorXs>( R.data(), 9, 1 );
             Rs.push_back( Rvec );
         }
-
+    } else if (scene_name == "sphere on plane") {
         //** load SCISim static planes
         {
             Vector3s p0 = validate_config(scene_params, "p0", 3);
@@ -286,7 +343,6 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
             }
             new_sim_state.addStaticPlane( StaticPlane( p0, n ) );
         }
-    } else if (scene_name == "sphere on plane") {
         throw scene_name+" is not implemented yet.";
     } else {
         std::vector< std::string > all_names_vec = get_scenes_list();
@@ -464,9 +520,9 @@ int SCISim::stepSystem() {
 //        }
 //    }
     
-    assert( m_scripting_callback != nullptr );
-    m_scripting_callback->setRigidBodySimState( m_sim.state() );
-    m_scripting_callback->startOfStepCallback( next_iter, m_dt );
+    // assert( m_scripting_callback != nullptr );
+    // m_scripting_callback->setRigidBodySimState( m_sim.state() );
+    // m_scripting_callback->startOfStepCallback( next_iter, m_dt );
     
     if( m_unconstrained_map == nullptr && m_impact_operator == nullptr && m_friction_operator == nullptr && m_impact_friction_map == nullptr )
     {
