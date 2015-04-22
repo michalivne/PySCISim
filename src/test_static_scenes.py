@@ -40,7 +40,7 @@ def compare_sim(xml_sim, sim, step_num, scene_name):
 
         all_x.append(sim_x)
         # should be almost equal since rotation is translated to/from matrices
-        np.testing.assert_array_almost_equal(xml_x, sim_x, decimal=10,
+        np.testing.assert_array_almost_equal(xml_x, sim_x, decimal=6,
              err_msg="Mismatch in values in step %i. (XML vs static)" % (i,))
 
     dt = time.time() - t0
@@ -111,7 +111,7 @@ class TestStaticSCISImScenes(unittest.TestCase):
             "r": np.array([1.0]),
             "rho": np.array([1.0]),
             "p0": np.array([0.0, -2.0, 0.0]),
-            "n": np.array([0.0, 1.0, 0.0]),
+            "n": np.array([0.3, 1.0, 0.0]),
             "x0": np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
             "x1": np.array([0.01, 0.02, 0.03, 0.04, 0.05, 0.06]),
             "CoR": np.array([0.5]),
