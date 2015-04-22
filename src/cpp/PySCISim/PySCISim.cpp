@@ -691,8 +691,12 @@ void SCISim::updateSimData() {
     p = m_sim.computeTotalMomentum();
     L = m_sim.computeTotalAngularMomentum();
 
-    m_sim.computeNumberOfCollisions( number_of_collisions, collision_penetration_depth );
-}
+    // compute number of collisions
+    const RigidBodySimState& m_sim_state = m_sim.getState();
+    std::vector<std::unique_ptr<Constraint>> active_set;
+    m_sim.computeActiveSet( m_sim_state.q(), m_sim_state.q(), active_set );
+    number_of_collisions = active_set.size();
+ }
 
 double SCISim::getSim_time() {
     return time;
@@ -1081,32 +1085,14 @@ void SCISim::get_contacts_normal_and_body_ind( ContactNormalVec& normal_and_body
     //for( std::vector<std::unique_ptr<Constraint>>::size_type i = 0; i < active_set.size(); ++i )
     for( const std::unique_ptr<Constraint>& constraint : active_set )
     {
-        if( constraint->getName() == "sphere_sphere" )
-        {
-            SphereSphereConstraint& sphere_sphere = sd_cast< SphereSphereConstraint&>( *constraint );
-            sphere_sphere.getWorldSpaceContactNormal( q, contact_normal );
-            normal_and_body_ind_vec.push_back(ContactNormalElement(
-                                                                   contact_normal, sphere_sphere.idx1()));
-        }
-        else if( constraint->getName() == "teleported_sphere_sphere" )
-        {
-            // TODO: Clean this up!
-            TeleportedSphereSphereConstraint& teleported_sphere_sphere = sd_cast< TeleportedSphereSphereConstraint&>( *constraint );
-            teleported_sphere_sphere.getWorldSpaceContactNormal( q, contact_normal );
-            normal_and_body_ind_vec.push_back(ContactNormalElement(
-                                                                   contact_normal, teleported_sphere_sphere.idx1()));
-        }
-        else if( constraint->getName() == "static_plane_sphere" )
-        {
-            StaticPlaneSphereConstraint& plane_sphere = sd_cast< StaticPlaneSphereConstraint&>( *constraint );
-            plane_sphere.getWorldSpaceContactNormal( q, contact_normal );
-            normal_and_body_ind_vec.push_back(ContactNormalElement(
-                                                                   contact_normal, plane_sphere.sphereIdx()));
-        }
-        else
-        {
-            std::cerr << "Warning, penetration depth computation not implemented for: " << constraint->getName() << std::endl;
-        }
+        BodyBodyConstraint& cur_constraint = sd_cast< BodyBodyConstraint&>( *constraint );
+        cur_constraint.getWorldSpaceContactNormal( q, contact_normal );
+        std::pair<int,int> bodies;
+        cur_constraint.getSimulatedBodyIndices( bodies );
+        if (bodies.first >= 0)
+            normal_and_body_ind_vec.push_back(ContactNormalElement(contact_normal, bodies.first));
+        if (bodies.second >= 0)
+            normal_and_body_ind_vec.push_back(ContactNormalElement(-contact_normal, bodies.second));
     }
 }
 
@@ -1122,28 +1108,13 @@ VectorXs SCISim::get_contacts_per_body()
     //for( std::vector<std::unique_ptr<Constraint>>::size_type i = 0; i < active_set.size(); ++i )
     for( const std::unique_ptr<Constraint>& constraint : active_set )
     {
-        if( constraint->getName() == "sphere_sphere" )
-        {
-            SphereSphereConstraint& sphere_sphere = sd_cast< SphereSphereConstraint&>( *constraint );
-            contacts_per_body(sphere_sphere.idx0()) += 1;
-            contacts_per_body(sphere_sphere.idx1()) += 1;
-        }
-        else if( constraint->getName() == "teleported_sphere_sphere" )
-        {
-            // TODO: Clean this up!
-            TeleportedSphereSphereConstraint& teleported_sphere_sphere = sd_cast< TeleportedSphereSphereConstraint&>( *constraint );
-            contacts_per_body(teleported_sphere_sphere.idx0()) += 1;
-            contacts_per_body(teleported_sphere_sphere.idx1()) += 1;
-        }
-        else if( constraint->getName() == "static_plane_sphere" )
-        {
-            StaticPlaneSphereConstraint& plane_sphere = sd_cast< StaticPlaneSphereConstraint&>( *constraint );
-            contacts_per_body(plane_sphere.sphereIdx()) += 1;
-        }
-        else
-        {
-            std::cerr << "Warning, penetration depth computation not implemented for: " << constraint->getName() << std::endl;
-        }
+        BodyBodyConstraint& cur_constraint = sd_cast< BodyBodyConstraint&>( *constraint );
+        std::pair<int,int> bodies;
+        cur_constraint.getSimulatedBodyIndices( bodies );
+        if (bodies.first >= 0)
+            contacts_per_body(bodies.first) += 1;
+        if (bodies.second >= 0)
+            contacts_per_body(bodies.second) += 1;
     }
     return contacts_per_body;
 }
