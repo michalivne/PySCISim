@@ -173,6 +173,9 @@ std::vector<std::string> SCISim::get_scenes_list() {
     std::vector<std::string> scene_name_list;
     scene_name_list.push_back("falling sphere");
     scene_name_list.push_back("sphere on plane");
+    scene_name_list.push_back("box on plane");
+    scene_name_list.push_back("N spheres on plane");
+    scene_name_list.push_back("N boxes on plane");
 
     return scene_name_list;
 }
@@ -297,6 +300,8 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
     Matrix33sr R0;
     R0.setIdentity();
 
+    bool expected_contact = false;
+
     // create a scene, set all values to 0, as x0/x1 determines the system state.
     if (scene_name == "falling sphere") {
         // ** Load SCISIm simState
@@ -335,6 +340,8 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
             Rs.push_back( Rvec );
         }
     } else if (scene_name == "sphere on plane") {
+            expected_contact = true;
+
             double r = validate_config(scene_params, "r", 1)(0);
             if (r <= 0.0)
                 throw "r must be > 0.";
@@ -344,6 +351,53 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
                 throw "rho must be > 0.";
 
             geometry.push_back( std::unique_ptr<RigidBodyGeometry>{ new RigidBodySphere( r ) } );
+            xs.push_back(Vector3s::Zero());
+            vs.push_back(Vector3s::Zero());        
+            omegas.push_back(Vector3s::Zero());
+            geometry_indices.push_back(0);
+            fixeds.push_back(false);
+
+            scalar M;
+            Vector3s CM;
+            Vector3s I;
+            Matrix33sr R;
+            geometry[geometry_indices.back()]->computeMassAndInertia( rho, M, CM, I, R );
+            if (debug) {
+                cout<<"M: "<<endl<<M<<endl;
+                cout<<"CM: "<<endl<<CM<<endl;
+                cout<<"I: "<<endl<<I<<endl;
+                cout<<"R: "<<endl<<R<<endl;
+            }
+            Ms.push_back( M );
+            I0s.push_back( I );
+            R = R0 * R;
+            VectorXs Rvec( 9 );
+            Rvec = Eigen::Map<VectorXs>( R.data(), 9, 1 );
+            Rs.push_back( Rvec );
+
+        //** load SCISim static planes
+        {
+            Vector3s p0 = validate_config(scene_params, "p0", 3);
+            Vector3s n = validate_config(scene_params, "n", 3);
+            if (n.norm()) {
+                n.normalize();
+            } else {
+                n = Eigen::Vector3d::UnitY();
+            }
+            new_sim_state.addStaticPlane( StaticPlane( p0, n ) );
+        }
+    } else if (scene_name == "box on plane") {
+            expected_contact = true;
+
+            Vector3s r = validate_config(scene_params, "r", 3);
+            if (r.minCoeff() <= 0.0)
+                throw "r must be > 0.";
+
+            double rho = validate_config(scene_params, "rho", 1)(0);
+            if (rho <= 0.0)
+                throw "rho must be > 0.";
+
+            geometry.push_back( std::unique_ptr<RigidBodyGeometry>{ new RigidBodyBox( r ) } );
             xs.push_back(Vector3s::Zero());
             vs.push_back(Vector3s::Zero());        
             omegas.push_back(Vector3s::Zero());
@@ -452,6 +506,9 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
                 " with tol: "<<impact_operator_v_tol<<
                 ", CoR: "<<m_CoR<<endl;
     } else {
+        if (expected_contact)
+            throw "Expected contact but no CoR was found in scene_params";
+
         m_impact_operator.reset( nullptr );
         m_CoR = SCALAR_NAN;
     }
@@ -499,6 +556,9 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
                 ", tol: "<<friction_operator_tol<<
                 ",  mu: "<<m_mu<<endl;
     } else {
+        if (expected_contact)
+            throw "Expected contact but no CoR was found in scene_params";
+
         m_friction_operator.reset( nullptr );
         m_mu = SCALAR_NAN;
         m_impact_friction_map.reset( nullptr );

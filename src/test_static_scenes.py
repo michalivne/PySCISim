@@ -40,7 +40,7 @@ def compare_sim(xml_sim, sim, step_num, scene_name):
 
         all_x.append(sim_x)
         # should be almost equal since rotation is translated to/from matrices
-        np.testing.assert_array_almost_equal(xml_x, sim_x, decimal=6,
+        np.testing.assert_array_almost_equal(xml_x, sim_x, decimal=5,
              err_msg="Mismatch in values in step %i. (XML vs static)" % (i,))
 
     dt = time.time() - t0
@@ -93,20 +93,21 @@ class TestStaticSCISImScenes(unittest.TestCase):
                                             rho=scenes_params["rho"][0],
                                             fixed="0")
 
-        xml_scene_fname = os.path.join(SCENE_FILE_PATH, "free_fall_sphere.xml")
+        scene_name = "falling sphere"
+        xml_scene_fname = os.path.join(SCENE_FILE_PATH,
+                                       "_".join(scene_name.split(" "))+".xml")
         scene.save(fname=xml_scene_fname)
 
         # load XML scene
         xml_sim = PySCISim.SCISim()
         xml_sim.openScene(xml_scene_fname)
 
-        scene_name = "falling sphere"
         # load static scene
         sim.loadScene(scene_name, scenes_params, True)
 
         compare_sim(xml_sim, sim, SIM_STEPS, scene_name)
 
-    def test_sphere_on_plane_sphere(self):
+    def test_sphere_on_plane(self):
         scenes_params = {
             "r": np.array([1.0]),
             "rho": np.array([1.0]),
@@ -148,7 +149,9 @@ class TestStaticSCISImScenes(unittest.TestCase):
                                n=scenes_params["n"],
                                r="10.0 5.0")
 
-        xml_scene_fname = os.path.join(SCENE_FILE_PATH, "sphere_on_plane.xml")
+        scene_name = "sphere on plane"
+        xml_scene_fname = os.path.join(SCENE_FILE_PATH,
+                                       "_".join(scene_name.split(" "))+".xml")
         scene.save(fname=xml_scene_fname)
 
         # load XML scene
@@ -156,7 +159,61 @@ class TestStaticSCISImScenes(unittest.TestCase):
         xml_sim.openScene(xml_scene_fname)
 
         # load static scene
-        scene_name = "sphere on plane"
+        sim.loadScene(scene_name, scenes_params, True)
+
+        compare_sim(xml_sim, sim, SIM_STEPS, scene_name)
+
+    def test_box_on_plane(self):
+        scenes_params = {
+            "r": np.array([0.3, 0.5, 1.0]),
+            "rho": np.array([1.0]),
+            "p0": np.array([0.0, -2.0, 0.0]),
+            "n": np.array([0.3, 1.0, 0.0]),
+            "x0": np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+            "x1": np.array([0.01, 0.02, 0.03, 0.04, 0.05, 0.06]),
+            "CoR": np.array([0.5]),
+            "mu": np.array([0.3]),
+            "h": np.array([H]),
+            "g": G,
+        }
+
+        scenes_params["n"] /= np.sqrt(np.sum(scenes_params["n"]**2))
+
+        sim = PySCISim.SCISim()
+        x = scenes_params["x0"].flatten()
+        v = sim.get_dxdt_from_x(scenes_params["x0"],
+                                scenes_params["x1"],
+                                H
+                                ).flatten()
+
+        # generate an XML scene
+        scene = SceneGenerator()
+
+        scene.add_integrator(dt=str(H))
+        scene.add_impact_operator(CoR=scenes_params["CoR"][0])
+        scene.add_friction_operator(mu=scenes_params["mu"][0])
+        scene.add_near_earth_gravity(f=G)
+        scene.add_box(name="box", r=scenes_params["r"])
+        scene.add_rigid_body_with_density(geometry_name="box",
+                                            x=x[0:3],
+                                            R=x[3:6],
+                                            v=v[0:3],
+                                            omega=v[3:6],
+                                            rho=scenes_params["rho"][0],
+                                            fixed="0")
+        scene.add_static_plane(x=scenes_params["p0"],
+                               n=scenes_params["n"],
+                               r="10.0 5.0")
+
+        scene_name = "box on plane"
+        xml_scene_fname = os.path.join(SCENE_FILE_PATH,
+                                       "_".join(scene_name.split(" "))+".xml")
+        scene.save(fname=xml_scene_fname)
+
+        # load XML scene
+        xml_sim = PySCISim.SCISim()
+        xml_sim.openScene(xml_scene_fname)
+
         # load static scene
         sim.loadScene(scene_name, scenes_params, True)
 

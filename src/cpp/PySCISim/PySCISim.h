@@ -61,6 +61,7 @@ public:
     unsigned computeTimestepDisplayPrecision( const Rational<std::intmax_t>& dt, const std::string& dt_string );
     // simulation interface
     bool openScene(const std::string& xml_scene_file_name, unsigned fps=30, bool render_at_fps=true, bool lock_camera=false );
+    
     std::vector<std::string> get_scenes_list();
     void loadScene(const std::string& scene_name, const SimConfigMap& scene_params, 
         bool debug=false,
