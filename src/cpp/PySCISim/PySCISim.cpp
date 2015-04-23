@@ -176,6 +176,7 @@ std::vector<std::string> SCISim::get_scenes_list() {
     scene_name_list.push_back("box on plane");
     scene_name_list.push_back("N spheres on plane");
     scene_name_list.push_back("N boxes on plane");
+    scene_name_list.push_back("N spheres on M planes");
 
     return scene_name_list;
 }
@@ -542,6 +543,69 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
                 n = Eigen::Vector3d::UnitY();
             }
             new_sim_state.addStaticPlane( StaticPlane( p0, n ) );
+        }
+    } else if (scene_name == "N spheres on M planes") {
+            expected_contact = true;
+
+            // load number of objects
+            int N = (int)validate_config(scene_params, "N", 1)(0);
+            if (debug)
+                cout<<"Generating "<<N<<" spheres."<<endl;
+
+            int M = (int)validate_config(scene_params, "M", 1)(0);
+            if (debug)
+                cout<<"Generating "<<M<<" planes."<<endl;
+
+            Eigen::VectorXd r = validate_config(scene_params, "r", N);
+            if (r.minCoeff() <= 0.0)
+                throw "r must be > 0.";
+
+            Eigen::VectorXd rho = validate_config(scene_params, "rho", N);
+            if (rho.minCoeff() <= 0.0)
+                throw "rho must be > 0.";
+
+            for (int n = 0; n < N; n++) {
+                geometry.push_back( std::unique_ptr<RigidBodyGeometry>{ new RigidBodySphere( r(n) ) } );
+                xs.push_back(Vector3s::Zero());
+                vs.push_back(Vector3s::Zero());        
+                omegas.push_back(Vector3s::Zero());
+                geometry_indices.push_back(n);
+                fixeds.push_back(false);
+
+                scalar M;
+                Vector3s CM;
+                Vector3s I;
+                Matrix33sr R;
+                geometry[geometry_indices.back()]->computeMassAndInertia( rho(n), M, CM, I, R );
+                if (debug) {
+                    cout<<"M: "<<endl<<M<<endl;
+                    cout<<"CM: "<<endl<<CM<<endl;
+                    cout<<"I: "<<endl<<I<<endl;
+                    cout<<"R: "<<endl<<R<<endl;
+                }
+                Ms.push_back( M );
+                I0s.push_back( I );
+                R = R0 * R;
+                VectorXs Rvec( 9 );
+                Rvec = Eigen::Map<VectorXs>( R.data(), 9, 1 );
+                Rs.push_back( Rvec );
+            }
+
+        //** load SCISim static planes
+        {
+            Eigen::VectorXd all_p0 = validate_config(scene_params, "p0", 3*M);
+            Eigen::VectorXd all_n = validate_config(scene_params, "n", 3*M);
+
+            for (int m = 0; m < M; m++) {
+                Vector3s p0 = all_p0.block(m*3, 0, 3, 1);
+                Vector3s n = all_n.block(m*3, 0, 3, 1);
+                if (n.norm()) {
+                    n.normalize();
+                } else {
+                    n = Eigen::Vector3d::UnitY();
+                }
+                new_sim_state.addStaticPlane( StaticPlane( p0, n ) );
+            }
         }
     } else {
         std::vector< std::string > all_names_vec = get_scenes_list();
