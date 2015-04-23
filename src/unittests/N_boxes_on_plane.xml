@@ -1,0 +1,16 @@
+<threed_rigid_body_scene>
+  <integrator dt="0.01" type="split_ham"/>
+  <impact_operator CoR="0.9" type="lcp">
+    <solver con_tol="1.0e-9" linear_solvers="ma97 ma57 mumps ma27 ma86" name="ipopt"/>
+  </impact_operator>
+  <friction_operator abs_sp_tol="1.0e-4" disk_samples="2" max_iters="50" mu="0.3" rel_sp_tol="1.0e-4" staggering="geometric" type="linearized">
+    <solver con_tol="1.0e-9" linear_solvers="ma97 ma57 mumps ma27 ma86" name="ipopt"/>
+  </friction_operator>
+  <near_earth_gravity f=" 0.   -9.81  0.  "/>
+  <geometry r=" 0.3  0.4  0.4" type="box"/>
+  <geometry r=" 0.5  0.2  0.3" type="box"/>
+  <rigid_body_with_density R=" 0.10554835  0.10554835  0.31664505" fixed="0" geo_idx="0" omega=" -3.35191537e-14   1.38777878e-15   0.00000000e+00" rho="1.0" v=" 0.  0.  0." x=" 0.  1.  0."/>
+  <rigid_body_with_density R=" 0.10554835  0.10554835  0.31664505" fixed="0" geo_idx="1" omega=" -3.35191537e-14   1.38777878e-15   0.00000000e+00" rho="0.5" v=" 0.  0. -3." x=" 0.   1.   1.2"/>
+  <static_plane n=" 0.28734789  0.95782629  0.        " x=" 0. -2.  0."/>
+  <static_plane_renderer plane="0" r="10.0 5.0"/>
+</threed_rigid_body_scene>

@@ -495,7 +495,7 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
             // load number of objects
             int N = (int)validate_config(scene_params, "N", 1)(0);
             if (debug)
-                cout<<"Generating "<<N<<" spheres."<<endl;
+                cout<<"Generating "<<N<<" boxes."<<endl;
 
             Eigen::VectorXd r = validate_config(scene_params, "r", N*3);
             if (r.minCoeff() <= 0.0)
@@ -506,7 +506,7 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
                 throw "rho must be > 0.";
 
             for (int n = 0; n < N; n++) {
-                geometry.push_back( std::unique_ptr<RigidBodyGeometry>{ new RigidBodyBox( r.block(0, 0, n*3, 3) ) } );
+                geometry.push_back( std::unique_ptr<RigidBodyGeometry>{ new RigidBodyBox( r.block(n*3, 0, 3, 1) ) } );
                 xs.push_back(Vector3s::Zero());
                 vs.push_back(Vector3s::Zero());        
                 omegas.push_back(Vector3s::Zero());
