@@ -510,7 +510,7 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
                 xs.push_back(Vector3s::Zero());
                 vs.push_back(Vector3s::Zero());        
                 omegas.push_back(Vector3s::Zero());
-                geometry_indices.push_back(0);
+                geometry_indices.push_back(n);
                 fixeds.push_back(false);
 
                 scalar M;
