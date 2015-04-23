@@ -225,6 +225,68 @@ class TestStaticSCISImScenes(unittest.TestCase):
 
         compare_sim(xml_sim, sim, SIM_STEPS, scene_name)
 
+    def test_N_spheres_on_plane(self):
+        scene_params = {
+            "N": np.array([2.0]),
+            "r": np.array([0.3, 0.4]),
+            "rho": np.array([1.0, 0.5]),
+            'x0': np.array([0., 1., 0., 0., 1., 1.2,
+                   0.10554835, 0.10554835, 0.31664505, 0.10554835, 0.10554835, 0.31664505]),
+            'x1': np.array([0., 1., 0., 0., 1., 1.2-3*H,
+                   0.10554835, 0.10554835, 0.31664505, 0.10554835, 0.10554835, 0.31664505]),
+            "p0": np.array([0.0, -2.0, 0.0]),
+            "n": np.array([0.3, 1.0, 0.0]),
+            "CoR": np.array([0.9]),
+            "mu": np.array([0.3]),
+            "h": np.array([H]),
+            "g": G,
+        }
+
+        scene_params["n"] /= np.sqrt(np.sum(scene_params["n"]**2))
+
+        x, v = get_x_v(scene_params)
+
+        # generate an XML scene
+        scene = SceneGenerator()
+
+        scene.add_integrator(dt=str(H))
+        scene.add_impact_operator(CoR=scene_params["CoR"][0])
+        scene.add_friction_operator(mu=scene_params["mu"][0])
+        scene.add_near_earth_gravity(f=G)
+        scene.add_sphere(name="ball0", r=scene_params["r"][0])
+        scene.add_sphere(name="ball1", r=scene_params["r"][1])
+        scene.add_rigid_body_with_density(geometry_name="ball0",
+                                            x=x[0:3],
+                                            R=x[6:9],
+                                            v=v[0:3],
+                                            omega=v[6:9],
+                                            rho=scene_params["rho"][0],
+                                            fixed="0")
+        scene.add_rigid_body_with_density(geometry_name="ball1",
+                                            x=x[3:6],
+                                            R=x[9:12],
+                                            v=v[3:6],
+                                            omega=v[9:12],
+                                            rho=scene_params["rho"][1],
+                                            fixed="0")
+        scene.add_static_plane(x=scene_params["p0"],
+                               n=scene_params["n"],
+                               r="10.0 5.0")
+
+        scene_name = "N spheres on plane"
+        xml_scene_fname = os.path.join(SCENE_FILE_PATH,
+                                       "_".join(scene_name.split(" "))+".xml")
+        scene.save(fname=xml_scene_fname)
+        # load XML scene
+        xml_sim = PySCISim.SCISim()
+        xml_sim.openScene(xml_scene_fname)
+
+        # load static scene
+        sim = PySCISim.SCISim()
+        sim.loadScene(scene_name, scene_params, True)
+
+        compare_sim(xml_sim, sim, SIM_STEPS, scene_name)
+
 
 if __name__ == '__main__':
     unittest.main()

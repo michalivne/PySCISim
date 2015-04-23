@@ -304,6 +304,8 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
 
     // create a scene, set all values to 0, as x0/x1 determines the system state.
     if (scene_name == "falling sphere") {
+        expected_contact = false;
+        
         // ** Load SCISIm simState
         {
             double r = validate_config(scene_params, "r", 1)(0);
@@ -421,6 +423,114 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
             VectorXs Rvec( 9 );
             Rvec = Eigen::Map<VectorXs>( R.data(), 9, 1 );
             Rs.push_back( Rvec );
+
+        //** load SCISim static planes
+        {
+            Vector3s p0 = validate_config(scene_params, "p0", 3);
+            Vector3s n = validate_config(scene_params, "n", 3);
+            if (n.norm()) {
+                n.normalize();
+            } else {
+                n = Eigen::Vector3d::UnitY();
+            }
+            new_sim_state.addStaticPlane( StaticPlane( p0, n ) );
+        }
+    } else if (scene_name == "N spheres on plane") {
+            expected_contact = true;
+
+            // load number of objects
+            int N = (int)validate_config(scene_params, "N", 1)(0);
+            if (debug)
+                cout<<"Generating "<<N<<" spheres."<<endl;
+
+            Eigen::VectorXd r = validate_config(scene_params, "r", N);
+            if (r.minCoeff() <= 0.0)
+                throw "r must be > 0.";
+
+            Eigen::VectorXd rho = validate_config(scene_params, "rho", N);
+            if (rho.minCoeff() <= 0.0)
+                throw "rho must be > 0.";
+
+            for (int n = 0; n < N; n++) {
+                geometry.push_back( std::unique_ptr<RigidBodyGeometry>{ new RigidBodySphere( r(n) ) } );
+                xs.push_back(Vector3s::Zero());
+                vs.push_back(Vector3s::Zero());        
+                omegas.push_back(Vector3s::Zero());
+                geometry_indices.push_back(n);
+                fixeds.push_back(false);
+
+                scalar M;
+                Vector3s CM;
+                Vector3s I;
+                Matrix33sr R;
+                geometry[geometry_indices.back()]->computeMassAndInertia( rho(n), M, CM, I, R );
+                if (debug) {
+                    cout<<"M: "<<endl<<M<<endl;
+                    cout<<"CM: "<<endl<<CM<<endl;
+                    cout<<"I: "<<endl<<I<<endl;
+                    cout<<"R: "<<endl<<R<<endl;
+                }
+                Ms.push_back( M );
+                I0s.push_back( I );
+                R = R0 * R;
+                VectorXs Rvec( 9 );
+                Rvec = Eigen::Map<VectorXs>( R.data(), 9, 1 );
+                Rs.push_back( Rvec );
+            }
+
+        //** load SCISim static planes
+        {
+            Vector3s p0 = validate_config(scene_params, "p0", 3);
+            Vector3s n = validate_config(scene_params, "n", 3);
+            if (n.norm()) {
+                n.normalize();
+            } else {
+                n = Eigen::Vector3d::UnitY();
+            }
+            new_sim_state.addStaticPlane( StaticPlane( p0, n ) );
+        }
+    } else if (scene_name == "N boxes on plane") {
+            expected_contact = true;
+
+            // load number of objects
+            int N = (int)validate_config(scene_params, "N", 1)(0);
+            if (debug)
+                cout<<"Generating "<<N<<" spheres."<<endl;
+
+            Eigen::VectorXd r = validate_config(scene_params, "r", N*3);
+            if (r.minCoeff() <= 0.0)
+                throw "r must be > 0.";
+
+            Eigen::VectorXd rho = validate_config(scene_params, "rho", N);
+            if (rho.minCoeff() <= 0.0)
+                throw "rho must be > 0.";
+
+            for (int n = 0; n < N; n++) {
+                geometry.push_back( std::unique_ptr<RigidBodyGeometry>{ new RigidBodyBox( r.block(0, 0, n*3, 3) ) } );
+                xs.push_back(Vector3s::Zero());
+                vs.push_back(Vector3s::Zero());        
+                omegas.push_back(Vector3s::Zero());
+                geometry_indices.push_back(0);
+                fixeds.push_back(false);
+
+                scalar M;
+                Vector3s CM;
+                Vector3s I;
+                Matrix33sr R;
+                geometry[geometry_indices.back()]->computeMassAndInertia( rho(n), M, CM, I, R );
+                if (debug) {
+                    cout<<"M: "<<endl<<M<<endl;
+                    cout<<"CM: "<<endl<<CM<<endl;
+                    cout<<"I: "<<endl<<I<<endl;
+                    cout<<"R: "<<endl<<R<<endl;
+                }
+                Ms.push_back( M );
+                I0s.push_back( I );
+                R = R0 * R;
+                VectorXs Rvec( 9 );
+                Rvec = Eigen::Map<VectorXs>( R.data(), 9, 1 );
+                Rs.push_back( Rvec );
+            }
 
         //** load SCISim static planes
         {
