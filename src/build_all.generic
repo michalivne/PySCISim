@@ -1,11 +1,8 @@
-#! /usr/bin/env zsh
-
-name=`uname -n`
+#!/usr/bin/env sh
 
 rm -Rf cpp/build && \
 mkdir -p cpp/build && \
 cd cpp/build && \
 cmake .. $* && \
 cd ../.. && \
-
 ./make_all $*

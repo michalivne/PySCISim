@@ -70,7 +70,8 @@ public:
         const std::string friction_operator_type="linearized", int friction_operator_disk_samples=2, 
         double friction_operator_tol=1e-4, double friction_operator_solver_tol=1e-9,
         int friction_operator_max_iters=50, const std::string friction_operator_staggering_type="geometric",
-        std::vector< std::string > linear_solvers={"ma97", "ma57", "mumps", "ma27", "ma86"});
+        std::vector< std::string > linear_solvers={"ma57", "mumps", "ma27", "ma86"});
+        // std::vector< std::string > linear_solvers={"ma97", "ma57", "mumps", "ma27", "ma86"});
     
     // Methods to control the solver
     int stepSystem();
