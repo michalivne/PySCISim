@@ -1948,7 +1948,7 @@ void SCISimApp::resolve_contact() {
         // loop over all contacts and push objects in direction of normal
         for( ContactNormalElement normal_and_body_ind : normal_and_body_ind_vec ) {
             // update translation by 1 centimeter
-            q.segment<3>(3 * normal_and_body_ind.second) += normal_and_body_ind.first*0.01;
+            q.segment<3>(3 * normal_and_body_ind.second) -= normal_and_body_ind.first*0.01;
 //            cout<<"Ind: "<<normal_and_body_ind.second<<"    n: "<<normal_and_body_ind.first(0)<<", "<<normal_and_body_ind.first(1)<<", "<<normal_and_body_ind.first(2)<<endl;
         }
     } while (is_contact);
