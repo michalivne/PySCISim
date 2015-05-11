@@ -64,7 +64,7 @@ public:
     
     std::vector<std::string> get_scenes_list();
     void loadScene(const std::string& scene_name, const SimConfigMap& scene_params, 
-        bool debug=false,
+        bool debug=false, bool fix_wrong_values=true,
         const std::string unconstrained_map_type="split_ham",
         const std::string impact_operator_type="lcp", double impact_operator_v_tol=1e-9,
         const std::string friction_operator_type="linearized", int friction_operator_disk_samples=2, 

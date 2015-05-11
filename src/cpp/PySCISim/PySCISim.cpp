@@ -85,6 +85,55 @@ inline Eigen::VectorXd validate_config(const SimConfigMap& scene_params,
     return vec_to_eigen(scene_params.at(param_name));
 }
 
+// enforce limits
+template <typename T>
+void force_bounds(T& var, const std::string& var_name, const T& min_val, const T& max_val,
+    bool debug, bool fix_wrong_values) {
+
+    if (var < min_val) {
+        if (fix_wrong_values) {
+            if (debug)
+                cout<<"WARNING: fixing '"<<var_name<<"' from "<<var<<" to "<<min_val<<endl;
+            var = min_val;
+        } else
+            throw var_name+" must be >= "+std::to_string(min_val);
+    }
+
+    if (var > max_val) {
+        if (fix_wrong_values) {
+            if (debug)
+                cout<<"WARNING: fixing '"<<var_name<<"' from "<<var<<" to "<<max_val<<endl;
+            var = max_val;
+        } else
+            throw var_name+" must be <= "+std::to_string(max_val);
+    }
+}
+
+// enforce limits
+template <typename T>
+void force_bounds_eigen(T& vec, 
+    const std::string& var_name, const double& min_val, const double& max_val,
+    bool debug, bool fix_wrong_values) {
+
+    if (vec.minCoeff() < min_val) {
+        if (fix_wrong_values) {
+            if (debug)
+                cout<<"WARNING: fixing '"<<var_name<<"' from "<<vec<<" to "<<min_val<<endl;
+            vec =  (vec.array() < min_val).select(min_val, vec);
+        } else
+            throw var_name+" must be >= "+std::to_string(min_val);
+    }
+
+    if (vec.maxCoeff() > max_val) {
+        if (fix_wrong_values) {
+            if (debug)
+                cout<<"WARNING: fixing '"<<var_name<<"' from "<<vec<<" to "<<max_val<<endl;
+            vec =  (vec.array() > max_val).select(max_val, vec);
+        } else
+            throw var_name+" must be <= "+std::to_string(max_val);
+    }
+}
+
 ////////////////////////////////////////////
 // SCISim
 ////////////////////////////////////////////
@@ -229,7 +278,7 @@ void rat_approx(double f, T md, T *num, T *denom)
 }
 
 void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_params, 
-    bool debug,
+    bool debug, bool fix_wrong_values,
     const std::string unconstrained_map_type, 
     const std::string impact_operator_type, double impact_operator_v_tol,
     const std::string friction_operator_type, int friction_operator_disk_samples, 
@@ -310,12 +359,10 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
         // ** Load SCISIm simState
         {
             double r = validate_config(scene_params, "r", 1)(0);
-            if (r <= 0.0)
-                throw "r must be > 0.";
+            force_bounds(r, "r", 1e-7, std::numeric_limits<double>::infinity(), debug, fix_wrong_values);
 
             double rho = validate_config(scene_params, "rho", 1)(0);
-            if (rho <= 0.0)
-                throw "rho must be > 0.";
+            force_bounds(rho, "rho", 1e-7, std::numeric_limits<double>::infinity(), debug, fix_wrong_values);
 
             geometry.push_back( std::unique_ptr<RigidBodyGeometry>{ new RigidBodySphere( r ) } );
             xs.push_back(Vector3s::Zero());
@@ -346,12 +393,10 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
             expected_contact = true;
 
             double r = validate_config(scene_params, "r", 1)(0);
-            if (r <= 0.0)
-                throw "r must be > 0.";
+            force_bounds(r, "r", 1e-7, std::numeric_limits<double>::infinity(), debug, fix_wrong_values);
 
             double rho = validate_config(scene_params, "rho", 1)(0);
-            if (rho <= 0.0)
-                throw "rho must be > 0.";
+            force_bounds(rho, "rho", 1e-7, std::numeric_limits<double>::infinity(), debug, fix_wrong_values);
 
             geometry.push_back( std::unique_ptr<RigidBodyGeometry>{ new RigidBodySphere( r ) } );
             xs.push_back(Vector3s::Zero());
@@ -393,12 +438,10 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
             expected_contact = true;
 
             Vector3s r = validate_config(scene_params, "r", 3);
-            if (r.minCoeff() <= 0.0)
-                throw "r must be > 0.";
+            force_bounds_eigen(r, "r", 1e-7, std::numeric_limits<double>::infinity(), debug, fix_wrong_values);
 
             double rho = validate_config(scene_params, "rho", 1)(0);
-            if (rho <= 0.0)
-                throw "rho must be > 0.";
+            force_bounds(rho, "rho", 1e-7, std::numeric_limits<double>::infinity(), debug, fix_wrong_values);
 
             geometry.push_back( std::unique_ptr<RigidBodyGeometry>{ new RigidBodyBox( r ) } );
             xs.push_back(Vector3s::Zero());
@@ -445,12 +488,10 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
                 cout<<"Generating "<<N<<" spheres."<<endl;
 
             Eigen::VectorXd r = validate_config(scene_params, "r", N);
-            if (r.minCoeff() <= 0.0)
-                throw "r must be > 0.";
+            force_bounds_eigen(r, "r", 1e-7, std::numeric_limits<double>::infinity(), debug, fix_wrong_values);
 
             Eigen::VectorXd rho = validate_config(scene_params, "rho", N);
-            if (rho.minCoeff() <= 0.0)
-                throw "rho must be > 0.";
+            force_bounds_eigen(rho, "rho", 1e-7, std::numeric_limits<double>::infinity(), debug, fix_wrong_values);
 
             for (int n = 0; n < N; n++) {
                 geometry.push_back( std::unique_ptr<RigidBodyGeometry>{ new RigidBodySphere( r(n) ) } );
@@ -499,12 +540,10 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
                 cout<<"Generating "<<N<<" boxes."<<endl;
 
             Eigen::VectorXd r = validate_config(scene_params, "r", N*3);
-            if (r.minCoeff() <= 0.0)
-                throw "r must be > 0.";
+            force_bounds_eigen(r, "r", 1e-7, std::numeric_limits<double>::infinity(), debug, fix_wrong_values);
 
             Eigen::VectorXd rho = validate_config(scene_params, "rho", N);
-            if (rho.minCoeff() <= 0.0)
-                throw "rho must be > 0.";
+            force_bounds_eigen(rho, "rho", 1e-7, std::numeric_limits<double>::infinity(), debug, fix_wrong_values);
 
             for (int n = 0; n < N; n++) {
                 geometry.push_back( std::unique_ptr<RigidBodyGeometry>{ new RigidBodyBox( r.block(n*3, 0, 3, 1) ) } );
@@ -557,12 +596,10 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
                 cout<<"Generating "<<M<<" planes."<<endl;
 
             Eigen::VectorXd r = validate_config(scene_params, "r", N);
-            if (r.minCoeff() <= 0.0)
-                throw "r must be > 0.";
+            force_bounds_eigen(r, "r", 1e-7, std::numeric_limits<double>::infinity(), debug, fix_wrong_values);
 
             Eigen::VectorXd rho = validate_config(scene_params, "rho", N);
-            if (rho.minCoeff() <= 0.0)
-                throw "rho must be > 0.";
+            force_bounds_eigen(rho, "rho", 1e-7, std::numeric_limits<double>::infinity(), debug, fix_wrong_values);
 
             for (int n = 0; n < N; n++) {
                 geometry.push_back( std::unique_ptr<RigidBodyGeometry>{ new RigidBodySphere( r(n) ) } );
@@ -657,9 +694,8 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
     if (scene_params.find("CoR") != scene_params.end()) {
         m_CoR = validate_config(scene_params, "CoR", 1)(0);
 
-        if ((m_CoR < 0.0) || (m_CoR > 1.0))
-            throw "CoR must be: 0.0 <= CoR <= 1.0";
-        
+        force_bounds(m_CoR, "CoR", 0.0, 1.0, debug, fix_wrong_values);
+
         if( impact_operator_type == "gauss_seidel" ) {
             m_impact_operator.reset( new GaussSeidelOperator( impact_operator_v_tol ) );
         } else if( impact_operator_type == "jacobi" ) {
@@ -690,9 +726,7 @@ void SCISim::loadScene(const std::string& scene_name, const SimConfigMap& scene_
     // ** set SCISim friction operator
     if (scene_params.find("mu") != scene_params.end()) {
         m_mu = validate_config(scene_params, "mu", 1)(0);
-
-        if ((m_mu < 0.0) || (m_mu > 1.0))
-            throw "mu must be: 0.0 <= mu <= 1.0";
+        force_bounds(m_mu, "mu", 0.0, 1.0, debug, fix_wrong_values);
 
         if( friction_operator_type == "linearized" ) {
             if( friction_operator_disk_samples > 1 ) {
