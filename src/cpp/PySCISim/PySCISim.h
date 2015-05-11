@@ -116,7 +116,7 @@ public:
     void set_dxdt(const VectorXs& x0, const VectorXs& x1, double h);
     
     // get a list of contact points and the corresponding normal
-    void get_contacts_normal_and_body_ind( ContactNormalVec& normal_and_body_ind_vec );
+    void get_contacts_normal_and_body_ind( ContactNormalVec& normal_and_body_ind_vec, bool use_CoM=false );
     // returns a vector with number of collisions per body
     VectorXs get_contacts_per_body();
     // iterates over all active contacts, and pushes bodies until there is no contact
@@ -218,7 +218,7 @@ public:
     void set_dxdt(const VectorXs& x0, const VectorXs& x1, double h);
 
     // get a list of contact points and the corresponding normal
-    void get_contacts_normal_and_body_ind( ContactNormalVec& normal_and_body_ind_vec );
+    void get_contacts_normal_and_body_ind( ContactNormalVec& normal_and_body_ind_vec);
     // returns a vector with number of collisions per body
     VectorXs get_contacts_per_body();
     // iterates over all active contacts, and pushes bodies until there is no contact

@@ -1280,11 +1280,10 @@ void SCISim::set_dxdt(const VectorXs& x0, const VectorXs& x1, double h) {
     setSimState_v(dxdt);
 }
 
-void SCISim::get_contacts_normal_and_body_ind( ContactNormalVec& normal_and_body_ind_vec )
+void SCISim::get_contacts_normal_and_body_ind( ContactNormalVec& normal_and_body_ind_vec, bool use_CoM )
 {
     const RigidBodySimState& m_sim_state = m_sim.getState();
     VectorXs contact_normal;
-    VectorXs q;
     
     normal_and_body_ind_vec.clear();
     
@@ -1293,13 +1292,25 @@ void SCISim::get_contacts_normal_and_body_ind( ContactNormalVec& normal_and_body
     //for( std::vector<std::unique_ptr<Constraint>>::size_type i = 0; i < active_set.size(); ++i )
     for( const std::unique_ptr<Constraint>& constraint : active_set )
     {
-        constraint->getWorldSpaceContactNormal( q, contact_normal );
+        // cout<<"constraint->getName(): "<<constraint->getName()<<endl;
         std::pair<int,int> bodies;
         constraint->getSimulatedBodyIndices( bodies );
+        // if two objects are in contact, CoM can be used
+        if ((use_CoM) && (bodies.first >= 0) && (bodies.second >= 0)) {
+            contact_normal = m_sim_state.q().segment<3>(3 * bodies.first) - m_sim_state.q().segment<3>(3 * bodies.second);
+            if (contact_normal.norm() > 0)
+                contact_normal.normalize();
+            else
+                contact_normal << 0, 1, 0;
+        } else {
+            constraint->getWorldSpaceContactNormal( m_sim_state.q(), contact_normal );
+        }
+
         if (bodies.first >= 0)
             normal_and_body_ind_vec.push_back(ContactNormalElement(contact_normal, bodies.first));
-        if (bodies.second >= 0)
+        if (bodies.second >= 0) {
             normal_and_body_ind_vec.push_back(ContactNormalElement(-contact_normal, bodies.second));
+        }
     }
 }
 
@@ -1326,7 +1337,6 @@ VectorXs SCISim::get_contacts_per_body()
 }
 
 bool SCISim::resolve_contact(double push_size, int max_iter) {
-    ContactNormalVec normal_and_body_ind_vec;
     bool is_contact;
     
     const RigidBodySimState& m_sim_state = m_sim.getState();
@@ -1335,18 +1345,22 @@ bool SCISim::resolve_contact(double push_size, int max_iter) {
     bool was_contact = false;
     // as long as there is contact, push bodies away
     do {
-        //        cout<<"HERE"<<endl;
-        get_contacts_normal_and_body_ind(normal_and_body_ind_vec);
+        // cout<<"q: "<<q.transpose()<<endl;
+        ContactNormalVec normal_and_body_ind_vec;
+        normal_and_body_ind_vec.clear();
+        // use CoM differences to resolve contact between two bodies.
+        get_contacts_normal_and_body_ind(normal_and_body_ind_vec, true);
+        // cout<<"HERE: "<<normal_and_body_ind_vec.size()<<endl;
         if (normal_and_body_ind_vec.size())
             was_contact = is_contact = true;
         else
             is_contact = false;
         
         // loop over all contacts and push objects in direction of normal
-        for( ContactNormalElement normal_and_body_ind : normal_and_body_ind_vec ) {
+        for( ContactNormalElement& normal_and_body_ind : normal_and_body_ind_vec ) {
             // update translation by 1 centimeter
-            q.segment<3>(3 * normal_and_body_ind.second) -= normal_and_body_ind.first*push_size;
-            //            cout<<"Ind: "<<normal_and_body_ind.second<<"    n: "<<normal_and_body_ind.first(0)<<", "<<normal_and_body_ind.first(1)<<", "<<normal_and_body_ind.first(2)<<endl;
+            q.segment<3>(3 * normal_and_body_ind.second) += normal_and_body_ind.first*push_size;
+            // cout<<"Ind: "<<normal_and_body_ind.second<<"    n: "<<normal_and_body_ind.first.transpose()<<endl;
         }
         max_iter--;
         if (max_iter <= 0)
@@ -1948,7 +1962,7 @@ void SCISimApp::resolve_contact() {
         // loop over all contacts and push objects in direction of normal
         for( ContactNormalElement normal_and_body_ind : normal_and_body_ind_vec ) {
             // update translation by 1 centimeter
-            q.segment<3>(3 * normal_and_body_ind.second) -= normal_and_body_ind.first*0.01;
+            q.segment<3>(3 * normal_and_body_ind.second) += normal_and_body_ind.first*0.01;
 //            cout<<"Ind: "<<normal_and_body_ind.second<<"    n: "<<normal_and_body_ind.first(0)<<", "<<normal_and_body_ind.first(1)<<", "<<normal_and_body_ind.first(2)<<endl;
         }
     } while (is_contact);
