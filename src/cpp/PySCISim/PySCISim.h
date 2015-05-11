@@ -120,7 +120,7 @@ public:
     // returns a vector with number of collisions per body
     VectorXs get_contacts_per_body();
     // iterates over all active contacts, and pushes bodies until there is no contact
-    bool resolve_contact();
+    bool resolve_contact(double push_size=0.01, int max_iter=1000);
     
     ThreeDRigidBodySim* getSim_sim();
     RigidBodySimState* getSim_sim_state_backup();

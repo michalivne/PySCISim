@@ -1325,7 +1325,7 @@ VectorXs SCISim::get_contacts_per_body()
     return contacts_per_body;
 }
 
-bool SCISim::resolve_contact() {
+bool SCISim::resolve_contact(double push_size, int max_iter) {
     ContactNormalVec normal_and_body_ind_vec;
     bool is_contact;
     
@@ -1345,9 +1345,12 @@ bool SCISim::resolve_contact() {
         // loop over all contacts and push objects in direction of normal
         for( ContactNormalElement normal_and_body_ind : normal_and_body_ind_vec ) {
             // update translation by 1 centimeter
-            q.segment<3>(3 * normal_and_body_ind.second) += normal_and_body_ind.first*0.01;
+            q.segment<3>(3 * normal_and_body_ind.second) -= normal_and_body_ind.first*push_size;
             //            cout<<"Ind: "<<normal_and_body_ind.second<<"    n: "<<normal_and_body_ind.first(0)<<", "<<normal_and_body_ind.first(1)<<", "<<normal_and_body_ind.first(2)<<endl;
         }
+        max_iter--;
+        if (max_iter <= 0)
+            break;
     } while (is_contact);
 
     return was_contact;
