@@ -10,11 +10,17 @@ ELSE ()
     OPTION(DEBUG_MODE "Controls debug/optimization flags" OFF)
 ENDIF()
 
-# Add CMake FIND* scripts
-SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
+# Base research path
+SET(RESEARCH_PATH "${CMAKE_SOURCE_DIR}/../../..")
 
-# make global SWIG interface files available
-INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/swig)
+# Common files
+SET(COMMON_PATH "${RESEARCH_PATH}/Common")
+
+# CMake finder files
+SET(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${COMMON_PATH}/cmake")
+
+# swig interface files
+INCLUDE_DIRECTORIES("${COMMON_PATH}/swig")
 
 
 # set path to include MacPorts rather thanl local python libraries.
@@ -78,7 +84,7 @@ ENDIF()
 
 SET(CMAKE_SWIG_FLAGS ${CMAKE_SWIG_FLAGS} -builtin)
 
-SET(SCISim_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/../../../SCISim) 
+SET(SCISim_INCLUDE_DIR ${RESEARCH_PATH}/SCISim) 
 
 # include SCISim
 INCLUDE_DIRECTORIES(${SCISim_INCLUDE_DIR})
